@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Content Security Policy: restrict script execution to same-origin only.
          style-src 'unsafe-inline' is required for Vite's injected style tags.
-         connect-src 'self' allows the app to call its configured AI backend;
+         connect-src * allows the app to call its configured AI backend;
          wildcard (*) is needed here because the backend URL is user-configurable. -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data:; font-src 'self' data:" />
