@@ -35,21 +35,19 @@ export class MicCapture {
     this.pcmChunks = [];
     this.state = 'recording';
 
+    // Activate microphone on the glasses
+    const ok = await this.bridge.audioControl(true);
+    if (!ok) {
+      this.state = 'idle';
+      throw new Error('Failed to start microphone');
+    }
+
     // Listen for PCM audio chunks from the glasses
     this.unsubscribeAudio = this.bridge.onEvenHubEvent((event) => {
       if (event.audioEvent?.audioPcm) {
         this.pcmChunks.push(event.audioEvent.audioPcm);
       }
     });
-
-    // Activate microphone on the glasses
-    const ok = await this.bridge.audioControl(true);
-    if (!ok) {
-      this.state = 'idle';
-      this.unsubscribeAudio?.();
-      this.unsubscribeAudio = undefined;
-      throw new Error('Failed to start microphone');
-    }
   }
 
   /**
