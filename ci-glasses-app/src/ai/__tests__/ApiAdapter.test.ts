@@ -209,5 +209,67 @@ describe('ApiAdapter', () => {
       const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'completions' });
       await expect(collect(adapter.sendMessage('hi', controller.signal))).rejects.toThrow();
     });
+
+    it('throws AbortError immediately when signal is already aborted before sendMessage', async () => {
+      fetchMock.mockImplementation(async () => makeCompletionsResponse('should not reach'));
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+      await expect(collect(adapter.sendMessage('hi', controller.signal))).rejects.toThrow();
+
+      // fetch should not have been called at all
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('aborts the OPTIONS probe when the signal fires mid-probe', async () => {
+      const controller = new AbortController();
+      let probeStarted = false;
+
+      fetchMock.mockImplementation(async (_url: string, opts: RequestInit) => {
+        if (opts?.method === 'OPTIONS') {
+          probeStarted = true;
+          // Abort the signal while the probe is in-flight
+          controller.abort();
+          // Then simulate the abort reaching fetch
+          throw new DOMException('Aborted', 'AbortError');
+        }
+        return makeCompletionsResponse('should not reach');
+      });
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+      await expect(collect(adapter.sendMessage('hi', controller.signal))).rejects.toThrow();
+      expect(probeStarted).toBe(true);
+    });
+
+    it('allows a subsequent call to re-probe after an aborted probe', async () => {
+      const controller = new AbortController();
+      let optionsCallCount = 0;
+
+      fetchMock.mockImplementation(async (_url: string, opts: RequestInit) => {
+        if (opts?.method === 'OPTIONS') {
+          optionsCallCount++;
+          if (optionsCallCount === 1) {
+            // First probe is aborted
+            controller.abort();
+            throw new DOMException('Aborted', 'AbortError');
+          }
+          // Second probe succeeds (falls back to completions)
+          return new Response(null, { status: 404 });
+        }
+        return makeCompletionsResponse('retry ok');
+      });
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+
+      // First call — probe is aborted
+      await expect(collect(adapter.sendMessage('hi', controller.signal))).rejects.toThrow();
+
+      // Second call with no signal — should re-probe and succeed
+      const result = await collect(adapter.sendMessage('hi'));
+      expect(result).toEqual(['retry ok']);
+      expect(optionsCallCount).toBe(2);
+    });
   });
 });
