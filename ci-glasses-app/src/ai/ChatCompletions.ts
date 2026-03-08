@@ -31,11 +31,15 @@ export class ChatCompletions {
   }
 
   async *send(userText: string): AsyncGenerator<string> {
-    this.history.push({ role: 'user', content: userText });
+    // Push user message after confirming the request succeeds so that a
+    // network or API error does not leave an orphaned message in history
+    // that would corrupt the conversation context on the next call.
+    const userMessage: Message = { role: 'user', content: userText };
 
     const messages: Message[] = [
       { role: 'system', content: this.config.systemPrompt },
       ...this.history,
+      userMessage,
     ];
 
     const response = await fetch(
@@ -60,6 +64,9 @@ export class ChatCompletions {
         `Chat Completions error ${response.status}: ${errText}`
       );
     }
+
+    // Request succeeded — commit the user message to history.
+    this.history.push(userMessage);
 
     if (this.config.streaming) {
       let assistantContent = '';
