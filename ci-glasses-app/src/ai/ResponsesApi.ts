@@ -21,7 +21,7 @@ export class ResponsesApi {
     this.previousResponseId = undefined;
   }
 
-  async *send(userText: string): AsyncGenerator<string> {
+  async *send(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
     const body: Record<string, unknown> = {
       model: this.config.model,
       input: userText,
@@ -43,6 +43,7 @@ export class ResponsesApi {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!response.ok) {

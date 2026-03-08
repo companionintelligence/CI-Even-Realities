@@ -35,13 +35,13 @@ export class ApiAdapter {
     this.responsesApi.clearContext();
   }
 
-  async *sendMessage(userText: string): AsyncGenerator<string> {
+  async *sendMessage(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
     const useResponses = await this.shouldUseResponsesApi();
 
     if (useResponses) {
-      yield* this.responsesApi.send(userText);
+      yield* this.responsesApi.send(userText, signal);
     } else {
-      yield* this.chatCompletions.send(userText);
+      yield* this.chatCompletions.send(userText, signal);
     }
   }
 

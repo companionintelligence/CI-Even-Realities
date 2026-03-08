@@ -69,7 +69,6 @@ export class WebSpeechSTT implements STTEngine {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async transcribe(_audio?: ArrayBuffer, _format?: string): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error('Web Speech API is not available in this browser');
