@@ -1,0 +1,21 @@
+{
+  "name": "ci-glasses-app",
+  "version": "0.1.0",
+  "description": "Even Hub app for G2 smart glasses with CI-server agentic AI integration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@evenrealities/even_hub_sdk": "^0.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

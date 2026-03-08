@@ -1,0 +1,7 @@
+{
+  "name": "CI Companion",
+  "description": "Agentic AI assistant for Even G2 glasses via CI-server or any OpenAI-compatible backend",
+  "version": "0.1.0",
+  "entry": "index.html",
+  "permissions": ["microphone", "storage"]
+}
