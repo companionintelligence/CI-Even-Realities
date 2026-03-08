@@ -88,7 +88,13 @@ export class ChatCompletions {
     // Trim history to stay within the configured budget. Keep an even number
     // of entries so that user/assistant turns stay paired. Oldest messages
     // are dropped first (slice from the end).
-    const max = this.config.maxHistoryMessages;
+    const configuredMax = this.config.maxHistoryMessages;
+    const max =
+      configuredMax <= 0
+        ? 0
+        : configuredMax % 2 === 0
+          ? configuredMax
+          : configuredMax - 1;
     if (this.history.length > max) {
       this.history = this.history.slice(this.history.length - max);
     }
