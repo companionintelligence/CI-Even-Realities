@@ -240,7 +240,11 @@ async function main(): Promise<void> {
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
     statusBar.setStatus('thinking');
-    await renderer?.showStatus('🤔 Thinking...');
+    try {
+      await renderer?.showStatus('🤔 Thinking...');
+    } catch (e) {
+      console.error('Failed to update glasses thinking status:', e);
+    }
 
     chatView.addMessage({
       role: 'user',
