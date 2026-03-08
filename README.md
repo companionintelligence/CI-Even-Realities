@@ -1,4 +1,4 @@
-# ci-even-realities
+# Companion Intelligence - Even Realities G2
 
 > **Agentic AI companion for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app that bridges any OpenAI-compatible AI backend to the G2 MicroLED display with voice-in / voice-out interaction.
 
