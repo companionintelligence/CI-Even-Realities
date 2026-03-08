@@ -28,7 +28,10 @@ export async function* parseSSEStream(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      // Split on all three SSE-spec line terminators: \r\n, \r, or \n.
+      // The \r\n case must be checked first to avoid treating \r\n as two
+      // separate terminators.
+      const lines = buffer.split(/\r\n|\r|\n/);
       // Keep the last (potentially incomplete) line in the buffer
       buffer = lines.pop() ?? '';
 

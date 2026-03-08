@@ -13,6 +13,8 @@ export class ApiAdapter {
   private chatCompletions: ChatCompletions;
   private responsesApi: ResponsesApi;
   private responsesApiSupported?: boolean;
+  /** In-flight probe promise, cached so concurrent callers share one request. */
+  private responsesApiProbe?: Promise<boolean>;
 
   constructor(private config: BackendConfig) {
     this.chatCompletions = new ChatCompletions(config);
@@ -25,6 +27,7 @@ export class ApiAdapter {
     this.responsesApi.updateConfig(config);
     // Reset cached capability when URL or mode changes
     this.responsesApiSupported = undefined;
+    this.responsesApiProbe = undefined;
   }
 
   clearHistory(): void {
@@ -74,8 +77,12 @@ export class ApiAdapter {
         { method: 'OPTIONS', signal: AbortSignal.timeout(5000) }
       );
       supportsResponses = responsesRes.ok || responsesRes.status === 405;
-    } catch {
-      // Responses API not available
+    } catch (e) {
+      // Surface the responses probe error only when the completions probe
+      // did not already set one, so partial failures are visible to the user.
+      if (!error) {
+        error = e instanceof Error ? e.message : String(e);
+      }
     }
 
     return {
@@ -93,10 +100,18 @@ export class ApiAdapter {
       case 'completions':
         return false;
       case 'auto':
-        if (this.responsesApiSupported === undefined) {
-          this.responsesApiSupported = await this.probeResponsesApi();
+        if (this.responsesApiSupported !== undefined) {
+          return this.responsesApiSupported;
         }
-        return this.responsesApiSupported;
+        // Cache the in-flight promise so that concurrent callers all await the
+        // same OPTIONS probe instead of each launching a redundant request.
+        if (!this.responsesApiProbe) {
+          this.responsesApiProbe = this.probeResponsesApi().then((result) => {
+            this.responsesApiSupported = result;
+            return result;
+          });
+        }
+        return this.responsesApiProbe;
     }
   }
 
