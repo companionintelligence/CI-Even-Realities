@@ -113,12 +113,83 @@ The Responses API streaming SSE format differs slightly from Chat Completions. T
 
 ---
 
+## Audio API endpoints
+
+The audio endpoints are independent of the Chat Completions / Responses API split, but are an important part of the voice pipeline:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /v1/audio/transcriptions` | Speech-to-text (STT) — Whisper-compatible |
+| `POST /v1/audio/speech` | Text-to-speech (TTS) — returns audio bytes |
+
+Both endpoints use the same Bearer token auth pattern. Implement them on `ci-server` to keep all provider API keys server-side.
+
+### STT streaming
+
+`/v1/audio/transcriptions` supports a streaming variant (`stream=true`) that emits partial transcripts as SSE events. This lets you display "what I heard" on the glasses display before the AI response starts, reducing perceived latency.
+
+### TTS as a parallel channel
+
+Because the G2 has no speaker, TTS output plays on the phone. Two-tier approach:
+
+1. **Low-latency baseline**: Use the browser/platform `SpeechSynthesis` API (Web Speech TTS) — no external dependency, works offline.
+2. **High-quality voice**: Call `POST /v1/audio/speech` from `ci-server` and stream audio bytes back to the frontend. OpenAI's `tts-1` and `tts-1-hd` models support multiple output formats.
+
+Make TTS opt-in (a toggle in Settings). Never block the text display on TTS completion — text and audio are parallel channels.
+
+---
+
+## Structured output differences
+
+| Feature | Chat Completions | Responses API |
+|---|---|---|
+| JSON mode | `response_format: {"type": "json_object"}` | `text: {"format": {"type": "json_object"}}` |
+| JSON schema | `response_format: {"type": "json_schema", "json_schema": <schema>}` | `text: {"format": {"type": "json_schema", "json_schema": <schema>}}` |
+
+The semantics are the same — only the wrapper key changed from top-level `response_format` to nested `text.format`. `ApiAdapter` should normalise structured output requests when translating between the two APIs.
+
+---
+
+## Context management strategies
+
+### Chat Completions mode — token budget
+
+In Chat Completions mode the full `messages[]` array is sent on every request. Long conversations grow the payload quadratically (each turn adds to every subsequent request). Mitigations:
+
+- **Max history length**: Keep the last N turns only. A practical default is ~10 turns (20 messages). Prune the oldest user+assistant pair when the limit is reached.
+- **Token counting**: Estimate token count before sending and truncate history if the estimated count exceeds a budget (e.g. 80% of the model's context window).
+- **Summarisation**: Periodically ask the model to summarise the conversation so far and replace the full history with the summary.
+
+### Responses API mode — expired context
+
+With `store: true` and `previous_response_id`, the server maintains history. Potential failure mode: the server-side context expires or is deleted.
+
+- Detect the error: the backend returns a `4xx` with a message like "response not found" or "context expired".
+- Recovery: clear `previousResponseId`, warn the user ("conversation reset"), and retry the last message as a fresh turn.
+
+---
+
+## Known limitations
+
+### `previous_response_id` not captured during streaming
+
+In Responses API streaming mode, the incremental SSE events do not include the response `id`. The final non-streaming response body contains `id`, but the current streaming implementation may miss it.
+
+**Workaround**: Look for a terminal SSE event (e.g. `event: response.completed`) that includes the full response object with `id`. Alternatively, extract the ID from a custom response header if `ci-server` emits one.
+
+This is tracked as a known limitation in `ROADMAP.md`.
+
+---
+
 ## Resources
 
 | Resource | URL |
 |---|---|
 | Responses API reference | <https://platform.openai.com/docs/api-reference/responses> |
+| Responses API streaming reference | <https://platform.openai.com/docs/api-reference/responses/streaming> |
 | Chat Completions reference | <https://platform.openai.com/docs/api-reference/chat> |
+| Audio transcriptions reference | <https://platform.openai.com/docs/api-reference/audio/createTranscription> |
+| Audio speech reference | <https://platform.openai.com/docs/api-reference/audio/createSpeech> |
 | Migration guide | <https://platform.openai.com/docs/guides/responses-vs-chat-completions> |
 | OpenAPI specification (GitHub) | <https://github.com/openai/openai-openapi> |
 | Developer quickstart | <https://platform.openai.com/docs/quickstart> |
