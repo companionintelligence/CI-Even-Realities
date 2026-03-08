@@ -16,8 +16,15 @@ export class LC3Decoder {
    * Pass-through: the SDK already delivers PCM audio from the G2 microphone.
    * The `audioPcm` field in `AudioEventPayload` is ready for use with the
    * Web Audio API or for sending to a Whisper STT endpoint.
+   *
+   * Throws if `pcmData` is empty (e.g. the user released the mic too quickly
+   * or a malformed BLE frame was received with no payload).
    */
   static fromSDKAudio(pcmData: Uint8Array): ArrayBuffer {
+    if (pcmData.byteLength === 0) {
+      throw new Error('LC3Decoder: received empty PCM frame');
+    }
+
     const slice = pcmData.buffer.slice(
       pcmData.byteOffset,
       pcmData.byteOffset + pcmData.byteLength
@@ -36,12 +43,23 @@ export class LC3Decoder {
    * @param pcmData   Raw 16-bit signed PCM samples (little-endian)
    * @param sampleRate  Sample rate in Hz (typically 16000 for speech)
    * @param channels  Number of audio channels (typically 1 for mono)
+   *
+   * Throws if `pcmData` is empty or contains an odd number of bytes (not
+   * a valid 16-bit PCM buffer).
    */
   static pcmToWav(
     pcmData: ArrayBuffer,
     sampleRate = 16000,
     channels = 1
   ): ArrayBuffer {
+    if (pcmData.byteLength === 0) {
+      throw new Error('LC3Decoder: cannot encode empty PCM buffer to WAV');
+    }
+    if (pcmData.byteLength % 2 !== 0) {
+      throw new Error(
+        'LC3Decoder: PCM buffer has an odd byte length — not valid 16-bit PCM'
+      );
+    }
     const pcmBytes = new Uint8Array(pcmData);
     const wavHeader = buildWavHeader(pcmBytes.byteLength, sampleRate, channels);
     const wavBuffer = new ArrayBuffer(wavHeader.byteLength + pcmBytes.byteLength);

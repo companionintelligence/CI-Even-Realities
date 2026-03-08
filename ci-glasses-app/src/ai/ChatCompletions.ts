@@ -30,7 +30,7 @@ export class ChatCompletions {
     return this.history;
   }
 
-  async *send(userText: string): AsyncGenerator<string> {
+  async *send(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
     // Push user message after confirming the request succeeds so that a
     // network or API error does not leave an orphaned message in history
     // that would corrupt the conversation context on the next call.
@@ -55,6 +55,7 @@ export class ChatCompletions {
           messages,
           stream: this.config.streaming,
         }),
+        signal,
       }
     );
 
@@ -82,6 +83,20 @@ export class ChatCompletions {
       const content = data.choices[0]?.message?.content ?? '';
       this.history.push({ role: 'assistant', content });
       yield content;
+    }
+
+    // Trim history to stay within the configured budget. Keep an even number
+    // of entries so that user/assistant turns stay paired. Oldest messages
+    // are dropped first (slice from the end).
+    const configuredMax = this.config.maxHistoryMessages;
+    const max =
+      configuredMax <= 0
+        ? 0
+        : configuredMax % 2 === 0
+          ? configuredMax
+          : configuredMax - 1;
+    if (this.history.length > max) {
+      this.history = this.history.slice(this.history.length - max);
     }
   }
 }

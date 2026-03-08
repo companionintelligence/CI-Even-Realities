@@ -27,6 +27,13 @@ export interface BackendConfig {
   sttProvider: STTProvider;
   /** Enable TTS audio output via phone speaker */
   ttsEnabled: boolean;
+  /**
+   * Maximum number of messages to keep in the Chat Completions history
+   * (user + assistant pairs). Older messages are dropped to avoid
+   * unbounded payload growth. Use an even number to keep whole turns.
+   * Default: 20 (10 conversation turns).
+   */
+  maxHistoryMessages: number;
 }
 
 const STORAGE_KEY = 'ci-glasses-config';
@@ -42,6 +49,7 @@ const DEFAULT_CONFIG: BackendConfig = {
   storeContext: true,
   sttProvider: 'whisper',
   ttsEnabled: false,
+  maxHistoryMessages: 20,
 };
 
 export class Settings {

@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite';
+/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   base: './',
@@ -9,5 +10,10 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.test.ts'],
   },
 });

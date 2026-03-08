@@ -122,11 +122,13 @@ async function main(): Promise<void> {
         await renderer?.nextPage();
       }
 
-      // Double-click → clear conversation
+      // Double-click → abort in-flight request + clear conversation
       if (
         listEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT
       ) {
+        currentAbortController?.abort();
+        currentAbortController = null;
         adapter.clearHistory();
         chatView.addMessage({
           role: 'system',
@@ -172,6 +174,7 @@ async function main(): Promise<void> {
   }
 
   // ── Voice pipeline ────────────────────────────────────────────────────────
+  let currentAbortController: AbortController | null = null;
 
   async function handleMicStart(): Promise<void> {
     if (!micCapture) return;
@@ -232,8 +235,16 @@ async function main(): Promise<void> {
   }
 
   async function sendToAI(userText: string): Promise<void> {
+    // Cancel any in-flight request before starting a new one
+    currentAbortController?.abort();
+    currentAbortController = new AbortController();
+    const { signal } = currentAbortController;
     statusBar.setStatus('thinking');
-    await renderer?.showStatus('🤔 Thinking...');
+    try {
+      await renderer?.showStatus('🤔 Thinking...');
+    } catch (e) {
+      console.error('Failed to update glasses thinking status:', e);
+    }
 
     chatView.addMessage({
       role: 'user',
@@ -251,7 +262,7 @@ async function main(): Promise<void> {
     let fullResponse = '';
 
     try {
-      const stream = adapter.sendMessage(userText);
+      const stream = adapter.sendMessage(userText, signal);
 
       async function* streamWithChatViewUpdates(
         gen: ReturnType<ApiAdapter['sendMessage']>
@@ -282,6 +293,12 @@ async function main(): Promise<void> {
         tts.speak(fullResponse);
       }
     } catch (e) {
+      // Ignore AbortError — this is an intentional cancellation (e.g. user
+      // double-tapped to clear, or a new request was started).
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        chatView.updateLastAssistantMessage('(cancelled)');
+        return;
+      }
       const errMsg = e instanceof Error ? e.message : String(e);
       console.error('AI request failed:', e);
       chatView.updateLastAssistantMessage(`❌ Error: ${errMsg}`);

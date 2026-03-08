@@ -35,13 +35,16 @@ export class ApiAdapter {
     this.responsesApi.clearContext();
   }
 
-  async *sendMessage(userText: string): AsyncGenerator<string> {
-    const useResponses = await this.shouldUseResponsesApi();
+  async *sendMessage(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
+    const useResponses = await this.shouldUseResponsesApi(signal);
+
+    // Throw immediately if the signal was aborted while waiting on the probe.
+    signal?.throwIfAborted();
 
     if (useResponses) {
-      yield* this.responsesApi.send(userText);
+      yield* this.responsesApi.send(userText, signal);
     } else {
-      yield* this.chatCompletions.send(userText);
+      yield* this.chatCompletions.send(userText, signal);
     }
   }
 
@@ -93,7 +96,7 @@ export class ApiAdapter {
     };
   }
 
-  private async shouldUseResponsesApi(): Promise<boolean> {
+  private async shouldUseResponsesApi(signal?: AbortSignal): Promise<boolean> {
     switch (this.config.apiMode) {
       case 'responses':
         return true;
@@ -103,26 +106,48 @@ export class ApiAdapter {
         if (this.responsesApiSupported !== undefined) {
           return this.responsesApiSupported;
         }
+        // Short-circuit if the caller already aborted before the probe starts.
+        signal?.throwIfAborted();
         // Cache the in-flight promise so that concurrent callers all await the
         // same OPTIONS probe instead of each launching a redundant request.
+        // If the probe rejects (e.g. aborted or network error), clear the cache
+        // so the next call can start a fresh probe.
         if (!this.responsesApiProbe) {
-          this.responsesApiProbe = this.probeResponsesApi().then((result) => {
-            this.responsesApiSupported = result;
-            return result;
-          });
+          this.responsesApiProbe = this.probeResponsesApi(signal).then(
+            (result) => {
+              this.responsesApiSupported = result;
+              return result;
+            },
+            (err: unknown) => {
+              // Clear the cached probe so a subsequent caller can retry.
+              this.responsesApiProbe = undefined;
+              throw err;
+            }
+          );
         }
         return this.responsesApiProbe;
     }
   }
 
-  private async probeResponsesApi(): Promise<boolean> {
+  private async probeResponsesApi(signal?: AbortSignal): Promise<boolean> {
     try {
+      // Combine the caller's AbortSignal with an internal timeout so the probe
+      // is cancelled immediately when the user aborts (e.g. double-tap to
+      // clear), rather than waiting for the full 3-second timeout to expire.
+      const timeout = AbortSignal.timeout(3000);
+      const combinedSignal =
+        signal
+          ? AbortSignal.any([signal, timeout])
+          : timeout;
       const res = await fetch(`${this.config.baseUrl}/v1/responses`, {
         method: 'OPTIONS',
-        signal: AbortSignal.timeout(3000),
+        signal: combinedSignal,
       });
       return res.ok || res.status === 405;
-    } catch {
+    } catch (e) {
+      // Re-throw AbortErrors so the caller can distinguish a user-initiated
+      // cancellation from a plain network failure.
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
       return false;
     }
   }

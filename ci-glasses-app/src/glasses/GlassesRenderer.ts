@@ -93,7 +93,7 @@ export class GlassesRenderer {
 
       const now = Date.now();
       if (now - lastSendTime >= STREAMING_THROTTLE_MS) {
-        const lines = wordWrap(accumulated, CHARS_PER_LINE);
+        const lines = wordWrap(stripMarkdown(accumulated), CHARS_PER_LINE);
         const allPages = paginate(lines, LINES_PER_SCREEN);
         // Show the last page while streaming (auto-scroll to end)
         const lastPage = allPages[allPages.length - 1] ?? [];
@@ -103,7 +103,7 @@ export class GlassesRenderer {
     }
 
     // After streaming completes, build full paginated view and show first page
-    const lines = wordWrap(accumulated, CHARS_PER_LINE);
+    const lines = wordWrap(stripMarkdown(accumulated), CHARS_PER_LINE);
     this.pages = paginate(lines, LINES_PER_SCREEN);
     this.currentPage = 0;
     await this.showCurrentPage();
@@ -111,9 +111,11 @@ export class GlassesRenderer {
 
   /**
    * Display a static text string (non-streaming).
+   * Basic Markdown formatting is stripped before rendering.
    */
   async displayText(text: string): Promise<void> {
-    const lines = wordWrap(text, CHARS_PER_LINE);
+    const plain = stripMarkdown(text);
+    const lines = wordWrap(plain, CHARS_PER_LINE);
     this.pages = paginate(lines, LINES_PER_SCREEN);
     this.currentPage = 0;
     await this.showCurrentPage();
@@ -188,9 +190,53 @@ export class GlassesRenderer {
           }),
         ],
       });
-      await this.bridge.rebuildPageContainer(container);
+      const rebuilt = await this.bridge.rebuildPageContainer(container);
+      if (!rebuilt) {
+        throw new Error('GlassesRenderer: both textContainerUpgrade and rebuildPageContainer failed');
+      }
     }
   }
+}
+
+/**
+ * Strip basic Markdown formatting so the plain-text G2 display renders cleanly.
+ *
+ * Handles:
+ *  - ATX headers: `## Heading` → `Heading`
+ *  - Bold: `**text**` or `__text__` → `text`
+ *  - Italic: `*text*` or `_text_` → `text`
+ *  - Inline code: `` `code` `` → `code`
+ *  - Unordered list markers: `- item` or `* item` → `• item`
+ *  - Ordered list markers: `1. item` → `item`
+ *  - Horizontal rules: `---`, `***`, `___` → (empty line)
+ *  - Blockquotes: `> text` → `text`
+ */
+export function stripMarkdown(text: string): string {
+  return text
+    // ATX headers (## Title) — strip leading # characters
+    .replace(/^#{1,6}\s+/gm, '')
+    // Bold + italic: ***text*** or ___text___
+    .replace(/\*{3}([^*]+?)\*{3}/g, '$1')
+    .replace(/_{3}([^_]+?)_{3}/g, '$1')
+    // Bold: **text** or __text__
+    .replace(/\*{2}([^*]+?)\*{2}/g, '$1')
+    .replace(/_{2}([^_]+?)_{2}/g, '$1')
+    // Italic: *text* or _text_ (not part of ** or __)
+    .replace(/(^|[^*])\*(?!\*)([^*]+?)\*(?!\*)/g, '$1$2')
+    .replace(/(^|[^_])_(?!_)([^_]+?)_(?!_)/g, '$1$2')
+    // Inline code: `code`
+    .replace(/`([^`]+)`/g, '$1')
+    // Horizontal rules (--- / *** / ___)
+    .replace(/^(\s*[-*_]){3,}\s*$/gm, '')
+    // Blockquotes: > text
+    .replace(/^>\s?/gm, '')
+    // Unordered list markers (- or *) → bullet
+    .replace(/^[\s]*[-*]\s+/gm, '• ')
+    // Ordered list markers (1. 2. etc.) → strip number
+    .replace(/^\s*\d+\.\s+/gm, '')
+    // Collapse multiple consecutive blank lines into one
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
