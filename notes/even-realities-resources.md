@@ -125,3 +125,87 @@ These tips are compiled from the Even Realities developer community:
 - The G2 transmits microphone audio over BLE using the **LC3** codec (used in Bluetooth LE Audio).
 - The `LC3Decoder.ts` module decodes LC3 frames to PCM/WAV before sending to the STT engine.
 - Whisper and other STT backends typically accept WAV or MP3 input.
+
+### Input event quirks
+
+Community reverse-engineering notes document several quirks that can break naïve gesture handling:
+
+- **`CLICK_EVENT = 0` normalization**: `OsEventTypeList.CLICK_EVENT` is the SDK enum constant for a single ring tap, and its numeric value is `0`. When parsed from the SDK JSON payload, `0` may be coerced to `undefined`. Guard input handlers to treat `undefined` as a click in the relevant code paths.
+- **Simulator vs real hardware differences**: The simulator may fire `sysEvent` for button presses, while real G2 hardware routes the same action via `textEvent` or `listEvent` depending on the active container type. Test both paths.
+- **Scroll debounce**: Scroll events can fire rapidly. Implement a cooldown of ~300 ms to avoid double-firing page navigation actions.
+- **Reliable gesture capture**: If the firmware's internal scroll handler consumes events before your app sees them, use a hidden text container with `isEventCapture: 1`. This pattern is documented in the [pong-even-g2](https://github.com/nickustinov/pong-even-g2) community demo and ensures scroll/tap gestures are delivered to your handler.
+
+### UI state machine
+
+Structure the app around an explicit state machine rather than ad-hoc flags. A proven pattern (from community voice assistant designs):
+
+```
+Idle → Listening → Thinking → Answering → Idle
+```
+
+- **Idle**: Show last response or welcome screen. Accept tap/scroll for page navigation.
+- **Listening**: Mic is active. Show a "recording…" indicator on the display.
+- **Thinking**: Audio sent to STT + AI request in flight. Show a "thinking…" indicator.
+- **Answering**: Streaming tokens arrive; update display with `textContainerUpgrade`.
+- Back to **Idle** when stream ends or on error.
+
+A state machine also helps handle the `abnormal_exit` SDK event gracefully (e.g. app loses foreground while recording).
+
+### Audio recording limits and VAD
+
+- The Even native demo app (Even AI mode) describes a **30-second maximum recording window** for LC3 audio over BLE. Design your UX and buffer sizes to handle a hard stop at ~30 s.
+- Consider client-side **Voice Activity Detection (VAD)** to auto-stop recording when the user goes silent, rather than relying on an explicit gesture release:
+  - Simple approach: RMS energy threshold + a short hangover period (~500 ms of silence triggers stop).
+  - More robust: send audio chunks to the backend and let the server determine end-of-utterance.
+- For streaming STT, send 200–500 ms PCM chunks over WebSocket. For non-streaming STT, buffer the full utterance and POST it as a WAV file on release.
+
+### Audio transport: WebSocket vs HTTPS
+
+When sending microphone audio to the backend you have two options:
+
+| Transport | Pros | Cons |
+|---|---|---|
+| **WebSocket (WSS)** | Bidirectional — audio goes up, partial transcripts come down; avoids browser limits on long-lived POST streams | Slightly more complex to implement |
+| **HTTPS chunk upload** | Simpler; works with any fetch-based client | One-way per request; harder to return partial transcripts |
+
+WSS is preferred for a voice assistant where you want to stream partial transcripts back to the display while audio is still being uploaded.
+
+### App packaging and network permissions
+
+Even Hub apps are packaged as `.ehpk` bundles using the `evenhub-cli`:
+
+```bash
+evenhub-cli pack          # produces app.ehpk
+evenhub-cli publish       # packs + uploads to the portal
+```
+
+Add `*.ehpk` to `.gitignore` — it is a build artifact, not source.
+
+The `app.json` manifest controls what network origins your app may call:
+
+```json
+{
+  "permissions": {
+    "network": ["https://api.openai.com", "https://my-server.example.com"]
+  }
+}
+```
+
+For apps where the user can configure their own backend URL (e.g. a LAN IP), use the wildcard:
+
+```json
+{
+  "permissions": {
+    "network": ["*"]
+  }
+}
+```
+
+`["*"]` is explicitly documented in the [even-g2-notes](https://github.com/nickustinov/even-g2-notes/tree/main) community packaging notes. It increases distribution trust requirements and places the security burden on robust auth and TLS.
+
+### Security model
+
+- **Frontend → backend auth**: Use a short-lived session token exchanged via a login or QR-pair flow. Never embed a provider API key in the Even Hub app bundle — it is a web page and can be inspected.
+- **Developer / agentic clients → backend**: Issue separate bearer tokens (like OpenAI's API key model) with per-key rate limits, project separation, and audit logging.
+- **Correlation IDs**: Add `x-request-id` to every backend request and log it end-to-end. This is critical for debugging intermittent BLE/WebView failures where the same request may be retried multiple times.
+- **Privacy**: Avoid sending raw audio or transcripts to third parties unless the user explicitly opts in per-provider. Store conversation logs encrypted; log only hashes or truncated payloads in production metrics.
