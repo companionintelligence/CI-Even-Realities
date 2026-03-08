@@ -216,14 +216,14 @@ export function stripMarkdown(text: string): string {
     // ATX headers (## Title) — strip leading # characters
     .replace(/^#{1,6}\s+/gm, '')
     // Bold + italic: ***text*** or ___text___
-    .replace(/\*{3}(.+?)\*{3}/g, '$1')
-    .replace(/_{3}(.+?)_{3}/g, '$1')
+    .replace(/\*{3}([^*]+?)\*{3}/g, '$1')
+    .replace(/_{3}([^_]+?)_{3}/g, '$1')
     // Bold: **text** or __text__
-    .replace(/\*{2}(.+?)\*{2}/g, '$1')
-    .replace(/_{2}(.+?)_{2}/g, '$1')
-    // Italic: *text* or _text_ (not preceded/followed by another * or _)
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1')
-    .replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '$1')
+    .replace(/\*{2}([^*]+?)\*{2}/g, '$1')
+    .replace(/_{2}([^_]+?)_{2}/g, '$1')
+    // Italic: *text* or _text_ (not part of ** or __)
+    .replace(/(^|[^*])\*(?!\*)([^*]+?)\*(?!\*)/g, '$1$2')
+    .replace(/(^|[^_])_(?!_)([^_]+?)_(?!_)/g, '$1$2')
     // Inline code: `code`
     .replace(/`([^`]+)`/g, '$1')
     // Horizontal rules (--- / *** / ___)
