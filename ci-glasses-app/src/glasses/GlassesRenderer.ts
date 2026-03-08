@@ -27,6 +27,12 @@ const LINES_PER_SCREEN = 5;
 // average character width to font size for the G2's monospace display rendering.
 const CHARS_PER_LINE = Math.floor(DISPLAY_WIDTH_PX / (FONT_SIZE_PX * 0.55));
 
+// Minimum interval (ms) between BLE display updates during streaming.
+// Sending on every SSE chunk can overwhelm the BLE layer, cause flickering,
+// and drain battery — throttling to ~150 ms gives a smooth, readable update
+// rate while staying well within typical BLE throughput limits.
+const STREAMING_THROTTLE_MS = 150;
+
 // Container IDs
 const TEXT_CONTAINER_ID = 1;
 
@@ -73,21 +79,30 @@ export class GlassesRenderer {
 
   /**
    * Display streamed text on the glasses in real-time as chunks arrive.
-   * Updates the display after every chunk with the latest full content.
+   * Updates the display at most every STREAMING_THROTTLE_MS milliseconds to
+   * avoid overwhelming the BLE layer with per-chunk updates, which would
+   * cause flickering and unnecessary battery drain. A final update is always
+   * sent after the stream ends to ensure the display shows complete content.
    */
   async displayStreaming(textStream: AsyncGenerator<string>): Promise<void> {
     let accumulated = '';
+    let lastSendTime = 0;
 
     for await (const chunk of textStream) {
       accumulated += chunk;
-      const lines = wordWrap(accumulated, CHARS_PER_LINE);
-      const allPages = paginate(lines, LINES_PER_SCREEN);
-      // Show the last page while streaming (auto-scroll to end)
-      const lastPage = allPages[allPages.length - 1] ?? [];
-      await this.sendText(lastPage.join('\n'));
+
+      const now = Date.now();
+      if (now - lastSendTime >= STREAMING_THROTTLE_MS) {
+        const lines = wordWrap(accumulated, CHARS_PER_LINE);
+        const allPages = paginate(lines, LINES_PER_SCREEN);
+        // Show the last page while streaming (auto-scroll to end)
+        const lastPage = allPages[allPages.length - 1] ?? [];
+        await this.sendText(lastPage.join('\n'));
+        lastSendTime = now;
+      }
     }
 
-    // After streaming completes, build full paginated view
+    // After streaming completes, build full paginated view and show first page
     const lines = wordWrap(accumulated, CHARS_PER_LINE);
     this.pages = paginate(lines, LINES_PER_SCREEN);
     this.currentPage = 0;
