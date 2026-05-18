@@ -61,10 +61,12 @@ export interface BackendConfig {
 const STORAGE_KEY = 'ci-glasses-config';
 
 const DEFAULT_CONFIG: BackendConfig = {
-  baseUrl: 'http://localhost:8080',
+  // Default to the agent-hub's default LAN port. Users who point at OpenAI
+  // directly will change this to https://api.openai.com.
+  baseUrl: 'http://localhost:8787',
   apiKey: 'ci-local-key',
   model: 'ci-companion',
-  backendKind: 'openai',
+  backendKind: 'local-llm',
   apiMode: 'auto',
   systemPrompt:
     "You are a personal companion assistant. Respond concisely — answers will be displayed on smart glasses.",

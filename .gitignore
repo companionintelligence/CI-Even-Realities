@@ -137,3 +137,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Even Hub packaged build artefacts (per packaging notes)
+*.ehpk
+
+# agent-hub local runtime logs
+agent-hub/*.log

@@ -67,8 +67,19 @@ gantt
 
 - [x] Vitest coverage for new `StreamParser` event-line parsing
 - [x] Vitest coverage for the hub router happy path
+- [x] Vitest integration test: fake downstream → hub → glasses-shaped SSE
+- [x] Live end-to-end against Ollama (`qwen2.5:0.5b` via `local-llm` adapter) — 1.4 s round-trip
 - [x] Update repo `README.md` to point at the hub and document the new backend kinds
 - [x] Update `notes/even-realities-resources.md` with the upstream projects this work draws on
+
+### D — Even Hub publish prep
+
+- [x] `app.json` migrated to current portal schema (edition `202601`, valid permission names, valid `package_id`)
+- [x] Add `@evenrealities/evenhub-cli` as devDependency + `pack:ehpk` / `qr` npm scripts
+- [x] Produce `ci-companion.ehpk` (35 KB) — verified by `evenhub pack`
+- [x] `PUBLISHING.md` covering pre-flight checklist, manifest reference, dev-mode QR flow, store listing copy, versioning, rollback
+- [x] `*.ehpk` added to `.gitignore`
+- [ ] Manual `evenhub login` + portal upload — needs human credentials
 
 ---
 
