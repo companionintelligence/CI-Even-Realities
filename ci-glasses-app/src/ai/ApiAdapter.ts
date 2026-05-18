@@ -6,8 +6,21 @@
  */
 
 import type { BackendConfig } from '../config/Settings.ts';
+import type { AgentEvent } from './AgentEvent.ts';
 import { ChatCompletions } from './ChatCompletions.ts';
 import { ResponsesApi } from './ResponsesApi.ts';
+
+/**
+ * Backend kinds that must route through the agent-hub (which speaks Chat
+ * Completions). The Responses API is OpenAI-hosted and incompatible with the
+ * hub's custom event surface.
+ */
+const HUB_ROUTED_KINDS = new Set<BackendConfig['backendKind']>([
+  'claude-cli',
+  'codex-cli',
+  'openclaw',
+  'local-llm',
+]);
 
 export class ApiAdapter {
   private chatCompletions: ChatCompletions;
@@ -36,16 +49,71 @@ export class ApiAdapter {
   }
 
   async *sendMessage(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
-    const useResponses = await this.shouldUseResponsesApi(signal);
+    for await (const evt of this.sendMessageEvents(userText, signal)) {
+      if (evt.type === 'text' && evt.delta) yield evt.delta;
+      if (evt.type === 'error') throw new Error(evt.message);
+    }
+  }
+
+  /**
+   * Structured-event variant of {@link sendMessage}. Yields text deltas and
+   * any agent_* events (permission prompts, status) emitted by the hub.
+   *
+   * Hub-routed backend kinds (claude-cli, codex-cli, openclaw, local-llm)
+   * always use Chat Completions regardless of the configured API mode — the
+   * hub does not speak the Responses API and the custom SSE event surface
+   * lives on the chat completions endpoint.
+   */
+  async *sendMessageEvents(
+    userText: string,
+    signal?: AbortSignal,
+    metadata?: Record<string, unknown>
+  ): AsyncGenerator<AgentEvent> {
+    const forceCompletions = HUB_ROUTED_KINDS.has(this.config.backendKind);
+    const useResponses = forceCompletions
+      ? false
+      : await this.shouldUseResponsesApi(signal);
 
     // Throw immediately if the signal was aborted while waiting on the probe.
     signal?.throwIfAborted();
 
     if (useResponses) {
-      yield* this.responsesApi.send(userText, signal);
+      yield* this.responsesApi.sendEvents(userText, signal);
     } else {
-      yield* this.chatCompletions.send(userText, signal);
+      const meta = {
+        ...(metadata ?? {}),
+        agent_kind: this.config.backendKind,
+      };
+      yield* this.chatCompletions.sendEvents(userText, signal, meta);
     }
+  }
+
+  /**
+   * Send an approval (or denial) for a `permission_prompt` event to the hub.
+   *
+   * Returns true if the hub acknowledged the approval. Non-hub backend kinds
+   * (`openai`) never emit prompts, so this is a no-op.
+   */
+  async approvePrompt(
+    sessionId: string,
+    promptId: string,
+    optionId: string,
+    signal?: AbortSignal
+  ): Promise<boolean> {
+    if (!HUB_ROUTED_KINDS.has(this.config.backendKind)) return false;
+    const res = await fetch(
+      `${this.config.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/approve`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt_id: promptId, option_id: optionId }),
+        signal,
+      }
+    );
+    return res.ok;
   }
 
   /**

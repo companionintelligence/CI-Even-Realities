@@ -1,6 +1,8 @@
 # Companion Intelligence - Even Realities G2
 
-> **Agentic AI companion for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app that bridges any OpenAI-compatible AI backend to the G2 MicroLED display with voice-in / voice-out interaction.
+> **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
+
+For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md).
 
 [![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.7-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue)](https://www.typescriptlang.org/)
@@ -23,13 +25,28 @@
 
 ## What this is
 
-`ci-even-realities` is an [Even Hub](https://evenhub.evenrealities.com/) app for the **Even Realities G2** smart glasses. It connects to any [OpenAI-API-compatible](https://platform.openai.com/docs/api-reference) backend (including [ci-server](https://github.com/companionintelligence/ci-server), local Ollama, vLLM, or OpenAI itself) and exposes a full voice-in / text-out loop:
+`ci-even-realities` is an [Even Hub](https://evenhub.evenrealities.com/) app for the **Even Realities G2** smart glasses, plus a sibling `agent-hub/` Node service that brokers local agents.
 
 ```
-[G2 touchbar long-press] ──▶ MicCapture ──▶ Whisper STT ──▶ ApiAdapter ──▶ AI backend
-                                                                              │
-[G2 display] ◀── GlassesRenderer ◀── SSE stream ◀────────────────────────────┘
+[G2 touchbar long-press] ──▶ MicCapture ──▶ Whisper STT ──▶ ApiAdapter
+                                                                │
+                                                                ▼
+                                                          ┌───────────┐
+                                                          │ agent-hub │ (LAN, optional)
+                                                          ├───────────┤
+                                                          │ adapter:  │
+                                                          │  openai   │
+                                                          │  local-llm│  → Ollama / Hermes
+                                                          │  claude-cli│ → Claude Code
+                                                          │  codex-cli │ → Codex CLI
+                                                          │  openclaw  │ → OpenClaw Gateway
+                                                          └─────┬─────┘
+[G2 display] ◀── GlassesRenderer ◀── SSE stream ◀──────────────┘
+                  │
+                  └── permission_prompt cards · ring single-tap = approve
 ```
+
+The glasses app stays a thin OpenAI SSE client. All agent-specific glue lives in `agent-hub/`. Point Backend URL at the hub, set Backend Kind in Settings, you're done.
 
 The app runs as a standard web page inside the **Even Hub** iOS/Android app, or in any modern browser (simulator / dev mode).
 
@@ -164,12 +181,44 @@ See [`docs/glasses-display.md`](docs/glasses-display.md) for full display spec d
 
 ---
 
+## Backend kinds
+
+The glasses app's `Settings` panel now exposes a **Backend Kind** selector. Each kind tells the app what to expect on the wire and (for hub-routed kinds) which adapter the hub will load.
+
+| Kind | Where it runs | Notes |
+|---|---|---|
+| `openai` | Any OpenAI-compatible URL | Today's default. Hub optional. |
+| `local-llm` | Ollama / vLLM / llama.cpp on LAN | Hermes-3 / Hermes-4 GGUFs land here. |
+| `claude-cli` | `agent-hub` spawning Claude Code | Supports `permission_prompt` events; ring single-tap approves. |
+| `codex-cli` | `agent-hub` spawning Codex CLI | Same permission flow as Claude. |
+| `openclaw` | `agent-hub` forwarding to OpenClaw Gateway | Node port of the dAAAb Cloudflare bridge. |
+
+See [`agent-hub/README.md`](agent-hub/README.md) for env vars and adapter details.
+
+---
+
 ## Project structure
 
 ```
 ci-even-realities/
 ├── README.md              ← you are here
+├── architecture.md        ← system design with mermaid charts
+├── planning.md            ← workstreams, milestones, decisions log
 ├── ROADMAP.md             ← next steps for testing and development
+├── agent-hub/             ← Node service brokering Claude/Codex/OpenClaw/local-LLM
+│   ├── README.md
+│   └── src/
+│       ├── server.ts
+│       ├── router.ts
+│       ├── sse.ts
+│       ├── events.ts
+│       ├── sessions.ts
+│       └── adapters/
+│           ├── Adapter.ts
+│           ├── passthrough.ts
+│           ├── claudeCli.ts
+│           ├── codexCli.ts
+│           └── openclaw.ts
 ├── docs/
 │   ├── architecture.md    ← system architecture deep-dive
 │   ├── api-compatibility.md ← Chat Completions vs Responses API

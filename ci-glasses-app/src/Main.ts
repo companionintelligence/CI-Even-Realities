@@ -36,6 +36,21 @@ async function main(): Promise<void> {
   const adapter = new ApiAdapter(settings.get());
   const tts = new TTSPlayer();
 
+  /**
+   * Glasses-side session id. Sent in chat-completion metadata so the hub can
+   * correlate approve-POSTs with the in-flight agent process.
+   */
+  const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  /** Currently displayed permission prompt, if any. */
+  let activePrompt: {
+    id: string;
+    approveOption: string;
+    denyOption: string;
+  } | null = null;
+
   // ── Root layout ───────────────────────────────────────────────────────────
   const root = document.getElementById('app')!;
 
@@ -114,28 +129,36 @@ async function main(): Promise<void> {
       const textEvt = event.textEvent;
       const sysEvt = event.sysEvent;
 
-      // Tap (click) → next page
+      // Tap (click) — approve active prompt if one is showing, else next page.
       if (
         listEvt?.eventType === OsEventTypeList.CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.CLICK_EVENT
       ) {
-        await renderer?.nextPage();
+        if (activePrompt) {
+          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
+        } else {
+          await renderer?.nextPage();
+        }
       }
 
-      // Double-click → abort in-flight request + clear conversation
+      // Double-click — deny active prompt if one is showing, else clear chat.
       if (
         listEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT
       ) {
-        currentAbortController?.abort();
-        currentAbortController = null;
-        adapter.clearHistory();
-        chatView.addMessage({
-          role: 'system',
-          content: 'Conversation cleared.',
-          timestamp: new Date(),
-        });
-        await renderer?.showStatus('Conversation cleared');
+        if (activePrompt) {
+          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
+        } else {
+          currentAbortController?.abort();
+          currentAbortController = null;
+          adapter.clearHistory();
+          chatView.addMessage({
+            role: 'system',
+            content: 'Conversation cleared.',
+            timestamp: new Date(),
+          });
+          await renderer?.showStatus('Conversation cleared');
+        }
       }
 
       // Scroll up → previous page
@@ -240,6 +263,7 @@ async function main(): Promise<void> {
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
     statusBar.setStatus('thinking');
+    activePrompt = null;
     try {
       await renderer?.showStatus('🤔 Thinking...');
     } catch (e) {
@@ -252,7 +276,6 @@ async function main(): Promise<void> {
       timestamp: new Date(),
     });
 
-    // Add placeholder assistant message
     chatView.addMessage({
       role: 'assistant',
       content: '…',
@@ -260,41 +283,75 @@ async function main(): Promise<void> {
     });
 
     let fullResponse = '';
+    let lastDisplayFlush = 0;
+    const DISPLAY_THROTTLE_MS = 150;
+
+    async function flushGlasses(force = false): Promise<void> {
+      if (!renderer || activePrompt) return;
+      const now = Date.now();
+      if (!force && now - lastDisplayFlush < DISPLAY_THROTTLE_MS) return;
+      lastDisplayFlush = now;
+      await renderer.displayText(fullResponse);
+    }
 
     try {
-      const stream = adapter.sendMessage(userText, signal);
+      const stream = adapter.sendMessageEvents(userText, signal, {
+        session_id: sessionId,
+      });
 
-      async function* streamWithChatViewUpdates(
-        gen: ReturnType<ApiAdapter['sendMessage']>
-      ): AsyncGenerator<string> {
-        for await (const chunk of gen) {
-          fullResponse += chunk;
+      for await (const evt of stream) {
+        if (evt.type === 'text') {
+          fullResponse += evt.delta;
           chatView.updateLastAssistantMessage(fullResponse);
-          yield chunk;
+          await flushGlasses();
+        } else if (evt.type === 'agent_status') {
+          const label = evt.label ?? evt.kind;
+          await renderer?.showStatus(`⏳ ${label}`);
+          statusBar.setStatus(
+            evt.kind === 'thinking' || evt.kind === 'awaiting_input'
+              ? 'thinking'
+              : evt.kind === 'executing'
+                ? 'processing'
+                : bridge ? 'connected' : 'disconnected'
+          );
+        } else if (evt.type === 'permission_prompt') {
+          const approveOpt =
+            evt.options.find((o) => o.id === 'approve') ?? evt.options[0];
+          const denyOpt =
+            evt.options.find((o) => o.id === 'deny') ??
+            evt.options[1] ??
+            evt.options[0];
+          activePrompt = {
+            id: evt.id,
+            approveOption: approveOpt?.id ?? 'approve',
+            denyOption: denyOpt?.id ?? 'deny',
+          };
+          chatView.addMessage({
+            role: 'system',
+            content: `🔐 ${evt.tool}: ${evt.summary}`,
+            timestamp: new Date(),
+          });
+          await renderer?.displayPromptCard({
+            tool: evt.tool,
+            summary: evt.summary,
+            approveLabel: approveOpt?.label,
+            denyLabel: denyOpt?.label,
+          });
+          statusBar.setStatus('thinking');
+        } else if (evt.type === 'error') {
+          throw new Error(evt.message);
         }
       }
 
-      if (renderer) {
-        await renderer.displayStreaming(streamWithChatViewUpdates(stream));
-      } else {
-        for await (const chunk of stream) {
-          fullResponse += chunk;
-          chatView.updateLastAssistantMessage(fullResponse);
-        }
-      }
-
-      // Update glasses preview in the UI
+      await flushGlasses(true);
       chatView.updateGlassesPreview(fullResponse);
 
-      // Optional TTS
       const cfg = settings.get();
-      if (cfg.ttsEnabled) {
+      if (cfg.ttsEnabled && fullResponse) {
         tts.setEnabled(true);
         tts.speak(fullResponse);
       }
     } catch (e) {
-      // Ignore AbortError — this is an intentional cancellation (e.g. user
-      // double-tapped to clear, or a new request was started).
       if (e instanceof DOMException && e.name === 'AbortError') {
         chatView.updateLastAssistantMessage('(cancelled)');
         return;
@@ -306,6 +363,28 @@ async function main(): Promise<void> {
     } finally {
       statusBar.setStatus(bridge ? 'connected' : 'disconnected');
       chatView.setProcessingState(false);
+    }
+  }
+
+  async function respondToPrompt(optionId: string, hudMsg: string): Promise<void> {
+    if (!activePrompt) return;
+    const prompt = activePrompt;
+    activePrompt = null;
+    try {
+      const ok = await adapter.approvePrompt(sessionId, prompt.id, optionId);
+      if (!ok) {
+        await renderer?.showStatus('❌ approve failed');
+      } else {
+        await renderer?.showStatus(hudMsg);
+      }
+      chatView.addMessage({
+        role: 'system',
+        content: `${hudMsg} (${prompt.id})`,
+        timestamp: new Date(),
+      });
+    } catch (e) {
+      console.error('approve failed:', e);
+      await renderer?.showStatus('❌ approve failed');
     }
   }
 

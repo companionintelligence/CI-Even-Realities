@@ -8,6 +8,26 @@
 export type ApiMode = 'completions' | 'responses' | 'auto';
 export type STTProvider = 'whisper' | 'webspeech';
 
+/**
+ * Which kind of agent sits behind the configured backend URL.
+ *
+ * The glasses app speaks one wire format (OpenAI SSE) regardless. The kind
+ * is a hint to the hub about how to dispatch, and to the app about which
+ * agent_* event types to expect (e.g. permission_prompt for coding agents).
+ *
+ * - `openai`     — any OpenAI-compatible endpoint, no extra events
+ * - `local-llm`  — Ollama / vLLM / llama.cpp running on LAN
+ * - `claude-cli` — agent-hub spawning Claude Code in stream-json mode
+ * - `codex-cli`  — agent-hub spawning Codex CLI in JSON streaming mode
+ * - `openclaw`   — agent-hub forwarding to an OpenClaw Gateway
+ */
+export type BackendKind =
+  | 'openai'
+  | 'local-llm'
+  | 'claude-cli'
+  | 'codex-cli'
+  | 'openclaw';
+
 export interface BackendConfig {
   /** Base URL of the AI backend, e.g. "http://localhost:8080" */
   baseUrl: string;
@@ -15,6 +35,8 @@ export interface BackendConfig {
   apiKey: string;
   /** Model name, e.g. "gpt-4o", "llama3", "ci-companion" */
   model: string;
+  /** Kind of agent the backend URL routes to. */
+  backendKind: BackendKind;
   /** Which OpenAI API shape to use */
   apiMode: ApiMode;
   /** Default system prompt / instructions */
@@ -42,6 +64,7 @@ const DEFAULT_CONFIG: BackendConfig = {
   baseUrl: 'http://localhost:8080',
   apiKey: 'ci-local-key',
   model: 'ci-companion',
+  backendKind: 'openai',
   apiMode: 'auto',
   systemPrompt:
     "You are a personal companion assistant. Respond concisely — answers will be displayed on smart glasses.",

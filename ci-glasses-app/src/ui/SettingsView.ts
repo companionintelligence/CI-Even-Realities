@@ -38,8 +38,18 @@ export class SettingsView {
     const backendSection = this.makeSection('AI Backend');
 
     backendSection.appendChild(
+      this.makeSelectRow('Backend Kind', 'backendKind', cfg.backendKind, [
+        { value: 'openai', label: 'OpenAI-compatible (any URL)' },
+        { value: 'local-llm', label: 'Local LLM (Ollama / vLLM / Hermes)' },
+        { value: 'claude-cli', label: 'Claude Code via agent-hub' },
+        { value: 'codex-cli', label: 'Codex CLI via agent-hub' },
+        { value: 'openclaw', label: 'OpenClaw via agent-hub' },
+      ])
+    );
+
+    backendSection.appendChild(
       this.makeTextRow('Backend URL', 'baseUrl', cfg.baseUrl, {
-        hint: 'e.g. http://localhost:8080 or https://api.openai.com',
+        hint: 'OpenAI-compatible endpoint (typically your agent-hub on the LAN)',
         placeholder: 'http://localhost:8080',
       })
     );
