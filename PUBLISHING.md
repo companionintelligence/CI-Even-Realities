@@ -139,11 +139,30 @@ Use this as the starting point — the portal accepts plain text + images.
 
 **Categories:** Productivity · Developer Tools
 
-**Screenshots to capture:**
-1. Settings panel with Backend Kind selector
-2. Streaming response on the G2 HUD (use the simulator)
-3. Permission-prompt card on the HUD
+**Icon assets** (in `ci-glasses-app/assets/icons/`):
+- `icon-1024.png` — App Store / portal master
+- `icon-512.png`, `icon-192.png`, `icon-128.png`, `icon-64.png` — derived sizes
+- `icon-512.png` is also bundled inside the `.ehpk` at `dist/icon.png`
+
+**Screenshots already captured** (in `ci-glasses-app/assets/screenshots/`):
+- `01-chat-connected.png` — Chat tab showing "Connected to Even G2" status + GLASSES DISPLAY preview pane (1198×1487, full simulator webview)
+- `02-hud-ready.png` — Simulated G2 HUD with "CI Companion ready" startup banner
+
+**Still to capture before submission:**
+1. Settings panel with Backend Kind selector (open Settings tab in the simulator)
+2. Streaming response on the G2 HUD (run a live query against agent-hub + Ollama)
+3. Permission-prompt card on the HUD (run a Claude Code task that needs approval)
 4. agent-hub terminal output (for the developer story)
+
+Repro the simulator setup with:
+```bash
+# in three terminals:
+ollama serve                                                                  # if not running
+cd agent-hub  && AGENT_KIND=local-llm DOWNSTREAM_URL=http://localhost:11434 npm run dev
+cd ci-glasses-app && npm run dev
+node_modules/@evenrealities/sim-darwin-arm64/bin/evenhub-simulator http://localhost:5173/
+```
+Or use the automation API (`--automation-port 9898`) to drive `/api/screenshot/glasses` and `/api/screenshot/webview` after each interaction.
 
 **Support URL:** <https://github.com/companionintelligence/CI-Even-Realities>
 
