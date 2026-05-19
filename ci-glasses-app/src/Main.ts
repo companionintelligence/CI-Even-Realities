@@ -62,6 +62,9 @@ async function main(): Promise<void> {
 
   // ── Root layout ───────────────────────────────────────────────────────────
   const root = document.getElementById('app')!;
+  // Hide the inline splash as soon as the first paint is ready.
+  // The CSS animation fades it out and pulls it out of the flow.
+  requestAnimationFrame(() => document.body.classList.add('ready'));
 
   // Status bar
   const statusBar = new StatusBar(root);
@@ -431,6 +434,7 @@ async function main(): Promise<void> {
   // ── Mic button callbacks from ChatView ────────────────────────────────────
   chatView.onMicStarted(handleMicStart);
   chatView.onMicStopped(handleMicStop);
+  chatView.onQuickActionPicked((prompt) => { void sendToAI(prompt); });
 
   // ── Add welcome message ────────────────────────────────────────────────────
   chatView.addMessage({

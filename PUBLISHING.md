@@ -148,12 +148,13 @@ Use this as the starting point — the portal accepts plain text + images.
 
 | File | What it shows | Source |
 |---|---|---|
-| `01-chat-connected.png` | Chat tab on first launch, "Connected to Even G2" banner, GLASSES DISPLAY preview | simulator webview |
+| `01-empty-quick-actions.png` | Empty Chat tab — icon mark, "Ready when you are" hero, 5 quick-action chips, system pill, GLASSES DISPLAY pane, polished SVG mic button | simulator webview |
 | `02-hud-ready.png` | G2 HUD showing "CI Companion ready" startup status | simulator glasses |
-| `03-settings.png` | Settings tab with the new **Backend Kind** selector defaulted to "Local LLM (Ollama / vLLM / Hermes)" | simulator webview |
+| `03-settings.png` | Settings tab with the **Backend Kind card grid** (Local LLM active), card hints visible | simulator webview |
 | `04-hud-prompt.png` | Permission-prompt card on the HUD — tool name, summary, "tap: Approve  2x: Deny" footer | simulator glasses |
-| `05-hud-stream-ollama.png` | Real Ollama (`qwen2.5:0.5b`) response paginated on the HUD: "Bluetooth Low Energy (BLE) is a variant of Bluetooth technology…" | simulator glasses |
-| `06-chat-with-response.png` | Full webview mid-stream: user bubble + assistant bubble + live GLASSES DISPLAY preview | simulator webview |
+| `05-hud-stream-ollama.png` | Real `qwen2.5:0.5b` answer paginated on the HUD with "[1/2]" indicator, streamed through beta-1 over Tailscale | simulator glasses |
+| `06-chat-with-response.png` | Full polished webview mid-stream: connected pill, model badge, user bubble (gradient green), assistant bubble (dark surface), live GLASSES DISPLAY preview with scan-line overlay | simulator webview |
+| `07-beta1-settings.png` | Settings showing Backend URL `http://100.124.211.75:8787` (beta-1 via Tailscale) — proves the deploy chain | simulator webview |
 
 **Optional extras** (capture only if you want extra polish):
 - agent-hub terminal output (for the developer story)
