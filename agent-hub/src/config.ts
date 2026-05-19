@@ -10,6 +10,14 @@ import type { BackendKind } from './adapters/Adapter.ts';
 export interface HubConfig {
   /** Port the HTTP server binds to. */
   port: number;
+  /**
+   * Interface to bind on. When the user hasn't set HUB_BIND explicitly we
+   * default to `127.0.0.1` for safety: an empty `HUB_TOKEN` would otherwise
+   * leave the hub exposed to any client on the LAN. Set `HUB_BIND=0.0.0.0`
+   * (or a specific interface) once you've configured `HUB_TOKEN` to use the
+   * hub over the network / Tailscale.
+   */
+  bind: string;
   /** Bearer token required on requests. Skipped when empty. */
   authToken: string;
   /** Which adapter to load. */
@@ -44,9 +52,15 @@ function parseKind(raw: string | undefined): BackendKind {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
+  const authToken = env['HUB_TOKEN'] ?? '';
+  // Safe default: bind loopback when no token is set. Caller can opt in to
+  // LAN/Tailscale exposure with HUB_BIND once a token is configured.
+  const explicitBind = env['HUB_BIND'];
+  const bind = explicitBind ?? (authToken ? '0.0.0.0' : '127.0.0.1');
   return {
     port: Number(env['HUB_PORT'] ?? 8787),
-    authToken: env['HUB_TOKEN'] ?? '',
+    bind,
+    authToken,
     agentKind: parseKind(env['AGENT_KIND']),
     downstreamUrl: env['DOWNSTREAM_URL'] ?? 'http://localhost:11434',
     downstreamApiKey: env['DOWNSTREAM_API_KEY'] ?? '',

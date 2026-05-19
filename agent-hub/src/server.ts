@@ -63,9 +63,15 @@ function main(): void {
       }
     });
   });
-  server.listen(cfg.port, () => {
+  server.listen(cfg.port, cfg.bind, () => {
+    const exposureNote =
+      cfg.bind === '127.0.0.1'
+        ? '  (loopback only — set HUB_TOKEN + HUB_BIND=0.0.0.0 for LAN)'
+        : !cfg.authToken
+          ? '  ⚠ exposed without HUB_TOKEN — set one before production use'
+          : '';
     console.log(
-      `[hub] listening on http://localhost:${cfg.port}  kind=${cfg.agentKind}`
+      `[hub] listening on http://${cfg.bind}:${cfg.port}  kind=${cfg.agentKind}${exposureNote}`
     );
   });
 }

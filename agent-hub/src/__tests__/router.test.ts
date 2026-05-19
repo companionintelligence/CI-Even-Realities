@@ -165,6 +165,29 @@ describe('router', () => {
     });
   });
 
+  it('honors stream:false with a JSON Chat Completion response', async () => {
+    const adapter = new FakeAdapter();
+    const router = makeRouter({ config: BASE_CFG, adapter });
+    await withServer(router, async (port) => {
+      const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'm',
+          stream: false,
+          messages: [{ role: 'user', content: 'hi' }],
+          metadata: { session_id: 'sess-stream-false' },
+        }),
+      });
+      expect(r.status).toBe(200);
+      expect(r.headers.get('content-type')).toMatch(/application\/json/);
+      const body = await r.json() as {
+        choices: Array<{ message: { content: string } }>;
+      };
+      expect(body.choices[0]?.message.content).toBe('hello world');
+    });
+  });
+
   it('approve returns 404 for unknown session', async () => {
     const adapter = new FakeAdapter();
     const router = makeRouter({ config: BASE_CFG, adapter });

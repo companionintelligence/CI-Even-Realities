@@ -11,7 +11,7 @@ See [`../architecture.md`](../architecture.md) for the full design.
 | Method | Path | Purpose |
 |---|---|---|
 | `GET`  | `/healthz` | Liveness + reports current adapter `kind` |
-| `POST` | `/v1/chat/completions` | OpenAI-shaped request, returns SSE with extended `agent_*` events |
+| `POST` | `/v1/chat/completions` | OpenAI-shaped request. Returns SSE when `stream: true`; returns a single JSON `chat.completion` object when `stream: false` |
 | `POST` | `/v1/sessions/:id/approve` | Resolve a `permission_prompt` emitted by a coding-agent adapter |
 
 ### Extended SSE events
@@ -40,7 +40,8 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | Env var | Default | What it does |
 |---|---|---|
 | `HUB_PORT` | `8787` | Bind port |
-| `HUB_TOKEN` | *(empty)* | Required bearer token; empty = no auth (dev only) |
+| `HUB_BIND` | `127.0.0.1` (no token) / `0.0.0.0` (token set) | Interface to bind on. Default is loopback when `HUB_TOKEN` is empty so a misconfigured hub doesn't end up exposed on the LAN. Set `HUB_BIND=0.0.0.0` once a token is configured. |
+| `HUB_TOKEN` | *(empty)* | Required bearer token; empty = no auth + loopback-only by default |
 | `AGENT_KIND` | `openai` | One of `openai`, `local-llm`, `claude-cli`, `codex-cli`, `openclaw` |
 | `DOWNSTREAM_URL` | `http://localhost:11434` | Used by `openai` / `local-llm` |
 | `DOWNSTREAM_API_KEY` | *(empty)* | Used by `openai` / `local-llm` |

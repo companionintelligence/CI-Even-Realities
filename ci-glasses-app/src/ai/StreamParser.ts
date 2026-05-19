@@ -69,7 +69,17 @@ export async function* parseSSEEvents(
     }
 
     const name = eventName ?? 'message';
-    if (name === 'message') {
+    // OpenAI Responses API streaming uses named events like
+    // `response.output_text.delta` instead of the default `message` event.
+    // Treat any name that *looks like* a text-delta event as text, plus
+    // anything we don't otherwise recognise but that contains a text
+    // payload — recoverable forward-compat for downstream gateways.
+    if (
+      name === 'message' ||
+      name === 'response.output_text.delta' ||
+      name === 'response.output_text.done' ||
+      name === 'response.text.delta'
+    ) {
       const delta = extractContent(parsed);
       if (delta) yield { type: 'text', delta };
       return;

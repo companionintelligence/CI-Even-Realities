@@ -31,18 +31,30 @@ import { ChatView } from './ui/ChatView.ts';
 import { SettingsView } from './ui/SettingsView.ts';
 
 async function main(): Promise<void> {
-  // Surface URL params early — used both for screen deep-linking and for
-  // dev-time settings overrides (e.g. simulator screenshots need to point at
-  // a LAN-reachable hub IP because the Tauri webview blocks loopback).
+  // Surface URL params early — used for `?screen=` deep-linking and for
+  // simulator-time overrides (the Tauri webview can't reach loopback so
+  // screenshots need a LAN-reachable hub URL passed via the URL).
+  //
+  // SECURITY: these overrides are applied for the **current session only**
+  // and never written to localStorage. Otherwise any malicious deep-link
+  // (e.g. emailed to the user) could silently rewrite the saved backend URL
+  // and exfiltrate future prompts + the stored API key.
   const earlyParams = new URLSearchParams(window.location.search);
   const baseUrlOverride = earlyParams.get('baseUrl');
   const modelOverride = earlyParams.get('model');
 
   // ── State ─────────────────────────────────────────────────────────────────
   const settings = new Settings();
-  if (baseUrlOverride) settings.set({ baseUrl: baseUrlOverride });
-  if (modelOverride) settings.set({ model: modelOverride });
-  const adapter = new ApiAdapter(settings.get());
+  const persisted = settings.get();
+  // Build a non-persistent view of the config with overrides applied. The
+  // Settings object itself stays clean — Reset / future reads still return
+  // the user's saved values.
+  const effectiveCfg = {
+    ...persisted,
+    ...(baseUrlOverride ? { baseUrl: baseUrlOverride } : {}),
+    ...(modelOverride ? { model: modelOverride } : {}),
+  };
+  const adapter = new ApiAdapter(effectiveCfg);
   const tts = new TTSPlayer();
 
   /**
@@ -412,22 +424,40 @@ async function main(): Promise<void> {
   async function respondToPrompt(optionId: string, hudMsg: string): Promise<void> {
     if (!activePrompt) return;
     const prompt = activePrompt;
+    // Clear optimistically; we restore it on failure so the user can retry
+    // (the prompt card is still on-screen unless something else over-wrote
+    // the HUD, but the gesture state machine needs activePrompt to route
+    // taps back to respondToPrompt instead of nextPage).
     activePrompt = null;
     try {
       const ok = await adapter.approvePrompt(sessionId, prompt.id, optionId);
-      if (!ok) {
-        await renderer?.showStatus('❌ approve failed');
-      } else {
+      if (ok) {
         await renderer?.showStatus(hudMsg);
+        chatView.addMessage({
+          role: 'system',
+          content: `${hudMsg} (${prompt.id})`,
+          timestamp: new Date(),
+        });
+      } else {
+        // Hub rejected — surface the actual outcome and let the user retry.
+        activePrompt = prompt;
+        await renderer?.showStatus('❌ approve failed — tap to retry');
+        chatView.addMessage({
+          role: 'system',
+          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — tap to retry`,
+          timestamp: new Date(),
+        });
       }
-      chatView.addMessage({
-        role: 'system',
-        content: `${hudMsg} (${prompt.id})`,
-        timestamp: new Date(),
-      });
     } catch (e) {
       console.error('approve failed:', e);
-      await renderer?.showStatus('❌ approve failed');
+      activePrompt = prompt;
+      const msg = e instanceof Error ? e.message : String(e);
+      await renderer?.showStatus('❌ approve failed — tap to retry');
+      chatView.addMessage({
+        role: 'system',
+        content: `❌ Approve threw: ${msg}`,
+        timestamp: new Date(),
+      });
     }
   }
 

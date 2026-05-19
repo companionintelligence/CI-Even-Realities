@@ -206,6 +206,22 @@ describe('parseSSEStream', () => {
       expect(await collectEvents(parseSSEEvents(response))).toEqual([]);
     });
 
+    it('extracts text from Responses-API named delta events', async () => {
+      // Wire shape from OpenAI Responses API streaming.
+      const response = makeSSEResponse([
+        'event: response.output_text.delta\n' +
+          'data: {"type":"response.output_text.delta","delta":"Hello"}\n\n',
+        'event: response.output_text.delta\n' +
+          'data: {"type":"response.output_text.delta","delta":" world"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toEqual([
+        { type: 'text', delta: 'Hello' },
+        { type: 'text', delta: ' world' },
+      ]);
+    });
+
     it('treats unrecognised permission_prompt shape as a no-op', async () => {
       const response = makeSSEResponse([
         'event: permission_prompt\ndata: {"id":"missing-tool"}\n\n',

@@ -118,6 +118,49 @@ async function handleChatCompletions(
   const ac = new AbortController();
   req.on('close', () => ac.abort());
 
+  // Honor the client's `stream` flag. When false, buffer all text deltas and
+  // return a single OpenAI Chat Completions response — matches what
+  // ChatCompletions.sendEvents expects in non-streaming mode and keeps
+  // hub-routed kinds usable without SSE.
+  if (body.stream === false) {
+    let text = '';
+    let errorMessage: string | undefined;
+    try {
+      for await (const evt of adapter.run(body, {
+        sessionId,
+        signal: ac.signal,
+      })) {
+        if (evt.type === 'text') text += evt.delta;
+        else if (evt.type === 'error') {
+          errorMessage = evt.message;
+          break;
+        }
+        // status / permission_prompt events have no representation in the
+        // non-streaming Chat Completions schema; they're silently dropped.
+      }
+    } catch (e) {
+      errorMessage = (e as Error).message;
+    }
+    if (errorMessage) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: errorMessage } }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      id: `chatcmpl-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: body.model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: text },
+        finish_reason: 'stop',
+      }],
+    }));
+    return;
+  }
+
   writeSSEHead(res);
 
   try {
