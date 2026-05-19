@@ -71,6 +71,28 @@ describe('router', () => {
     });
   });
 
+  it('answers CORS preflight with permissive headers', async () => {
+    const adapter = new FakeAdapter();
+    const router = makeRouter({ config: BASE_CFG, adapter });
+    await withServer(router, async (port) => {
+      const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'http://localhost:5174',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type,authorization',
+        },
+      });
+      expect(r.status).toBe(204);
+      // Echoes the requesting origin (better than wildcard for cred requests).
+      expect(r.headers.get('access-control-allow-origin')).toBe(
+        'http://localhost:5174'
+      );
+      expect(r.headers.get('access-control-allow-methods')).toContain('POST');
+      expect(r.headers.get('access-control-allow-headers')).toMatch(/authorization/i);
+    });
+  });
+
   it('rejects requests without bearer token when one is configured', async () => {
     const adapter = new FakeAdapter();
     const router = makeRouter({

@@ -28,6 +28,30 @@ export function makeRouter(deps: RouterDeps) {
     const url = req.url ?? '/';
     const method = req.method ?? 'GET';
 
+    // Permissive CORS so the glasses app (running in the Even Hub WebView,
+    // a Tauri WKWebView simulator, or any browser) can call the hub from a
+    // different origin. The hub is LAN-only; security comes from the bearer
+    // token, not from origin restrictions.
+    const origin = req.headers['origin'];
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Authorization, Content-Type'
+    );
+
+    if (method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     if (method === 'GET' && url === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, kind: deps.adapter.kind }));

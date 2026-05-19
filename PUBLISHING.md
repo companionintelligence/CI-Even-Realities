@@ -145,24 +145,48 @@ Use this as the starting point — the portal accepts plain text + images.
 - `icon-512.png` is also bundled inside the `.ehpk` at `dist/icon.png`
 
 **Screenshots already captured** (in `ci-glasses-app/assets/screenshots/`):
-- `01-chat-connected.png` — Chat tab showing "Connected to Even G2" status + GLASSES DISPLAY preview pane (1198×1487, full simulator webview)
-- `02-hud-ready.png` — Simulated G2 HUD with "CI Companion ready" startup banner
 
-**Still to capture before submission:**
-1. Settings panel with Backend Kind selector (open Settings tab in the simulator)
-2. Streaming response on the G2 HUD (run a live query against agent-hub + Ollama)
-3. Permission-prompt card on the HUD (run a Claude Code task that needs approval)
-4. agent-hub terminal output (for the developer story)
+| File | What it shows | Source |
+|---|---|---|
+| `01-chat-connected.png` | Chat tab on first launch, "Connected to Even G2" banner, GLASSES DISPLAY preview | simulator webview |
+| `02-hud-ready.png` | G2 HUD showing "CI Companion ready" startup status | simulator glasses |
+| `03-settings.png` | Settings tab with the new **Backend Kind** selector defaulted to "Local LLM (Ollama / vLLM / Hermes)" | simulator webview |
+| `04-hud-prompt.png` | Permission-prompt card on the HUD — tool name, summary, "tap: Approve  2x: Deny" footer | simulator glasses |
+| `05-hud-stream-ollama.png` | Real Ollama (`qwen2.5:0.5b`) response paginated on the HUD: "Bluetooth Low Energy (BLE) is a variant of Bluetooth technology…" | simulator glasses |
+| `06-chat-with-response.png` | Full webview mid-stream: user bubble + assistant bubble + live GLASSES DISPLAY preview | simulator webview |
 
-Repro the simulator setup with:
+**Optional extras** (capture only if you want extra polish):
+- agent-hub terminal output (for the developer story)
+- Real glasses photo (out-of-app context for the hero image)
+
+### How the screenshots were captured
+
+The app supports three URL-param **demo bootstraps** wired into [Main.ts](ci-glasses-app/src/Main.ts) — used only for screenshot capture and dev, no production overhead:
+
+| URL | Effect |
+|---|---|
+| `?screen=settings` | Open the Settings tab on load |
+| `?screen=prompt` | Render a synthetic permission-prompt card on the HUD on load |
+| `?screen=stream&q=<text>&baseUrl=<url>&model=<name>` | Fire a real chat request through the configured backend on load |
+
+Repro the full simulator setup:
+
 ```bash
-# in three terminals:
-ollama serve                                                                  # if not running
-cd agent-hub  && AGENT_KIND=local-llm DOWNSTREAM_URL=http://localhost:11434 npm run dev
+# 1) Ollama (if not running):  ollama serve  &&  ollama pull qwen2.5:0.5b
+# 2) Hub:
+cd agent-hub && AGENT_KIND=local-llm DOWNSTREAM_URL=http://localhost:11434 npm run dev
+# 3) Glasses app dev server:
 cd ci-glasses-app && npm run dev
-node_modules/@evenrealities/sim-darwin-arm64/bin/evenhub-simulator http://localhost:5173/
+# 4) Simulator with automation:
+node_modules/@evenrealities/sim-darwin-arm64/bin/evenhub-simulator \
+  --automation-port 9898 \
+  "http://localhost:5173/?screen=stream&q=Hello&baseUrl=http://<LAN-IP>:8787&model=qwen2.5:0.5b"
+# 5) Capture screenshots:
+curl -o glasses.png http://localhost:9898/api/screenshot/glasses
+curl -o webview.png http://localhost:9898/api/screenshot/webview
 ```
-Or use the automation API (`--automation-port 9898`) to drive `/api/screenshot/glasses` and `/api/screenshot/webview` after each interaction.
+
+**Note on networking**: the Tauri webview inside the simulator can reach a LAN IP (`192.168.x.y:8787`) but not `localhost` of the host. Use your machine's LAN IP when pointing at the hub from the simulator. The agent-hub now sends permissive CORS headers so the webview's preflight passes.
 
 **Support URL:** <https://github.com/companionintelligence/CI-Even-Realities>
 

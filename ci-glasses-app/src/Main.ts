@@ -31,8 +31,17 @@ import { ChatView } from './ui/ChatView.ts';
 import { SettingsView } from './ui/SettingsView.ts';
 
 async function main(): Promise<void> {
+  // Surface URL params early — used both for screen deep-linking and for
+  // dev-time settings overrides (e.g. simulator screenshots need to point at
+  // a LAN-reachable hub IP because the Tauri webview blocks loopback).
+  const earlyParams = new URLSearchParams(window.location.search);
+  const baseUrlOverride = earlyParams.get('baseUrl');
+  const modelOverride = earlyParams.get('model');
+
   // ── State ─────────────────────────────────────────────────────────────────
   const settings = new Settings();
+  if (baseUrlOverride) settings.set({ baseUrl: baseUrlOverride });
+  if (modelOverride) settings.set({ model: modelOverride });
   const adapter = new ApiAdapter(settings.get());
   const tts = new TTSPlayer();
 
@@ -87,20 +96,28 @@ async function main(): Promise<void> {
 
   settingsView.hide();
 
-  // Tab switching
-  chatTab.addEventListener('click', () => {
+  function showChat(): void {
     chatTab.classList.add('tab-bar__tab--active');
     settingsTab.classList.remove('tab-bar__tab--active');
     chatView.show();
     settingsView.hide();
-  });
-
-  settingsTab.addEventListener('click', () => {
+  }
+  function showSettings(): void {
     settingsTab.classList.add('tab-bar__tab--active');
     chatTab.classList.remove('tab-bar__tab--active');
     settingsView.show();
     chatView.hide();
-  });
+  }
+
+  chatTab.addEventListener('click', showChat);
+  settingsTab.addEventListener('click', showSettings);
+
+  // Deep-link via ?screen=settings|prompt — used by the simulator's
+  // automation API to capture portal screenshots without manual clicks.
+  // The `prompt` variant fires after the SDK bridge is ready (below).
+  const params = new URLSearchParams(window.location.search);
+  const screen = params.get('screen');
+  if (screen === 'settings') showSettings();
 
   // Update model display in status bar
   statusBar.setModel(settings.get().model);
@@ -122,6 +139,29 @@ async function main(): Promise<void> {
     await renderer.init();
 
     await renderer.showStatus('CI Companion ready');
+
+    // `?screen=prompt` — render a synthetic permission_prompt card so the
+    // simulator can capture portal screenshots. Disabled in production by
+    // the absence of the query param. The fake prompt cannot be approved
+    // (there's no live agent backing it).
+    if (screen === 'prompt') {
+      activePrompt = {
+        id: 'demo-prompt',
+        approveOption: 'approve',
+        denyOption: 'deny',
+      };
+      await renderer.displayPromptCard({
+        tool: 'Bash',
+        summary: 'Run `git push origin main` from /repo/ci-server?',
+      });
+    }
+    // `?screen=stream&q=<text>` — fire a real query through the configured
+    // backend on boot so the simulator can capture a mid-stream HUD frame.
+    if (screen === 'stream') {
+      const q = params.get('q') ?? 'What is bluetooth low energy in one short sentence?';
+      // Defer slightly so the bridge has settled before we kick off the stream.
+      setTimeout(() => { void sendToAI(q); }, 250);
+    }
 
     // ── Ring / touchbar gesture handling ──────────────────────────────────
     bridge.onEvenHubEvent(async (event) => {
