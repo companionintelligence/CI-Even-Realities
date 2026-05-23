@@ -1,7 +1,22 @@
 {
+  "package_id": "com.companionintelligence.ciglasses",
+  "edition": "202601",
   "name": "CI Companion",
-  "description": "Agentic AI assistant for Even G2 glasses via CI-server or any OpenAI-compatible backend",
-  "version": "0.1.0",
-  "entry": "index.html",
-  "permissions": ["microphone", "storage"]
+  "version": "0.3.0",
+  "icon": "icon.png",
+  "min_app_version": "2.0.0",
+  "min_sdk_version": "0.0.7",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "g2-microphone",
+      "desc": "Capture voice queries from the G2 glasses for speech-to-text transcription."
+    },
+    {
+      "name": "network",
+      "desc": "Send transcribed prompts to your configured AI backend (agent-hub on LAN, OpenAI, Ollama, OpenClaw, or any OpenAI-compatible URL) and stream the response.",
+      "whitelist": ["*"]
+    }
+  ],
+  "supported_languages": ["en"]
 }

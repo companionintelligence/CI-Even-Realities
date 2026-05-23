@@ -11,12 +11,18 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "pack:ehpk": "npm run build && evenhub pack app.json dist --output ci-companion.ehpk",
+    "pack:check": "npm run build && evenhub pack app.json dist --output ci-companion.ehpk --check",
+    "qr": "evenhub qr --port 5173",
+    "simulator": "evenhub-simulator http://localhost:5173/"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.7"
   },
   "devDependencies": {
+    "@evenrealities/evenhub-cli": "^0.1.13",
+    "@evenrealities/evenhub-simulator": "^0.7.3",
     "@types/node": "^20.0.0",
     "eslint": "^10.0.3",
     "jsdom": "^28.1.0",

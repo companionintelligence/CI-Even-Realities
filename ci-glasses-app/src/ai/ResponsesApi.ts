@@ -6,6 +6,7 @@
  */
 
 import type { BackendConfig } from '../config/Settings.ts';
+import type { AgentEvent } from './AgentEvent.ts';
 import { parseSSEStream } from './StreamParser.ts';
 
 export class ResponsesApi {
@@ -64,6 +65,20 @@ export class ResponsesApi {
         this.previousResponseId = data.id;
       }
       yield data.output_text ?? '';
+    }
+  }
+
+  /**
+   * Structured-event wrapper for symmetry with ChatCompletions.sendEvents.
+   * The OpenAI Responses API does not emit agent_* events itself, so this is
+   * just a text→event lift; the hub never routes Responses-shape traffic.
+   */
+  async *sendEvents(
+    userText: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<AgentEvent> {
+    for await (const delta of this.send(userText, signal)) {
+      if (delta) yield { type: 'text', delta };
     }
   }
 }

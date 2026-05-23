@@ -6,6 +6,7 @@ const BASE_CONFIG: BackendConfig = {
   baseUrl: 'http://localhost:8080',
   apiKey: 'test-key',
   model: 'gpt-test',
+  backendKind: 'openai',
   apiMode: 'completions',
   systemPrompt: 'You are a test assistant.',
   streaming: false,

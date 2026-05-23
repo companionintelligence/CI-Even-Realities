@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseSSEStream } from '../StreamParser.ts';
+import { parseSSEStream, parseSSEEvents } from '../StreamParser.ts';
+import type { AgentEvent } from '../AgentEvent.ts';
 
 /** Build a Response whose body streams the given string chunks. */
 function makeSSEResponse(chunks: string[]): Response {
@@ -141,6 +142,92 @@ describe('parseSSEStream', () => {
     it('yields nothing for a stream with only [DONE]', async () => {
       const response = makeSSEResponse(['data: [DONE]\n']);
       expect(await collect(parseSSEStream(response))).toEqual([]);
+    });
+  });
+
+  describe('parseSSEEvents — agent event types', () => {
+    async function collectEvents(
+      gen: AsyncGenerator<AgentEvent>
+    ): Promise<AgentEvent[]> {
+      const out: AgentEvent[] = [];
+      for await (const e of gen) out.push(e);
+      return out;
+    }
+
+    it('parses agent_status events', async () => {
+      const response = makeSSEResponse([
+        'event: agent_status\ndata: {"kind":"thinking"}\n\n',
+        'event: agent_status\ndata: {"kind":"done","label":"finished"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toEqual([
+        { type: 'agent_status', kind: 'thinking', label: undefined },
+        { type: 'agent_status', kind: 'done', label: 'finished' },
+      ]);
+    });
+
+    it('parses permission_prompt events with default options', async () => {
+      const response = makeSSEResponse([
+        'event: permission_prompt\n' +
+          'data: {"id":"p1","tool":"Bash","summary":"rm tmp/"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toHaveLength(1);
+      const evt = events[0]!;
+      expect(evt.type).toBe('permission_prompt');
+      if (evt.type === 'permission_prompt') {
+        expect(evt.id).toBe('p1');
+        expect(evt.tool).toBe('Bash');
+        expect(evt.summary).toBe('rm tmp/');
+        expect(evt.options.map((o) => o.id)).toEqual(['approve', 'deny']);
+      }
+    });
+
+    it('interleaves text deltas and structured events', async () => {
+      const completion = JSON.stringify({
+        choices: [{ delta: { content: 'reading file…' } }],
+      });
+      const response = makeSSEResponse([
+        `data: ${completion}\n\n`,
+        'event: agent_status\ndata: {"kind":"executing","label":"Bash"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events.map((e) => e.type)).toEqual(['text', 'agent_status']);
+    });
+
+    it('drops events for unknown event names', async () => {
+      const response = makeSSEResponse([
+        'event: telemetry\ndata: {"foo":1}\n\n',
+        'data: [DONE]\n',
+      ]);
+      expect(await collectEvents(parseSSEEvents(response))).toEqual([]);
+    });
+
+    it('extracts text from Responses-API named delta events', async () => {
+      // Wire shape from OpenAI Responses API streaming.
+      const response = makeSSEResponse([
+        'event: response.output_text.delta\n' +
+          'data: {"type":"response.output_text.delta","delta":"Hello"}\n\n',
+        'event: response.output_text.delta\n' +
+          'data: {"type":"response.output_text.delta","delta":" world"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toEqual([
+        { type: 'text', delta: 'Hello' },
+        { type: 'text', delta: ' world' },
+      ]);
+    });
+
+    it('treats unrecognised permission_prompt shape as a no-op', async () => {
+      const response = makeSSEResponse([
+        'event: permission_prompt\ndata: {"id":"missing-tool"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      expect(await collectEvents(parseSSEEvents(response))).toEqual([]);
     });
   });
 });

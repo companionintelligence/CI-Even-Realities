@@ -38,8 +38,12 @@ export class SettingsView {
     const backendSection = this.makeSection('AI Backend');
 
     backendSection.appendChild(
+      this.makeKindPicker(cfg.backendKind)
+    );
+
+    backendSection.appendChild(
       this.makeTextRow('Backend URL', 'baseUrl', cfg.baseUrl, {
-        hint: 'e.g. http://localhost:8080 or https://api.openai.com',
+        hint: 'OpenAI-compatible endpoint (typically your agent-hub on the LAN)',
         placeholder: 'http://localhost:8080',
       })
     );
@@ -186,6 +190,67 @@ export class SettingsView {
 
     section.appendChild(titleEl);
     return section;
+  }
+
+  /**
+   * Visual card-picker for the backend kind — clearer than a dropdown for
+   * a discrete, branded set of choices, and shows the per-kind hint inline.
+   */
+  private makeKindPicker(active: BackendConfig['backendKind']): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'settings-row__label';
+    labelEl.textContent = 'Backend Kind';
+    row.appendChild(labelEl);
+
+    const hint = document.createElement('div');
+    hint.className = 'settings-row__hint';
+    hint.textContent =
+      'Tells the app which agent runs behind Backend URL. Hub-routed kinds also unlock permission prompts on the HUD.';
+    row.appendChild(hint);
+
+    const grid = document.createElement('div');
+    grid.className = 'kind-picker';
+
+    const KINDS: Array<{
+      value: BackendConfig['backendKind'];
+      name: string;
+      hint: string;
+    }> = [
+      { value: 'local-llm',  name: 'Local LLM',   hint: 'Ollama / vLLM / Hermes' },
+      { value: 'openai',     name: 'OpenAI-like', hint: 'Direct or any provider' },
+      { value: 'claude-cli', name: 'Claude Code', hint: 'via agent-hub' },
+      { value: 'codex-cli',  name: 'Codex CLI',   hint: 'via agent-hub' },
+      { value: 'openclaw',   name: 'OpenClaw',    hint: 'Gateway via agent-hub' },
+    ];
+    for (const k of KINDS) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className =
+        'kind-card' + (k.value === active ? ' kind-card--active' : '');
+
+      const name = document.createElement('div');
+      name.className = 'kind-card__name';
+      name.textContent = k.name;
+
+      const h = document.createElement('div');
+      h.className = 'kind-card__hint';
+      h.textContent = k.hint;
+
+      card.appendChild(name);
+      card.appendChild(h);
+      card.addEventListener('click', () => {
+        this.settings.set({ backendKind: k.value });
+        this.adapter.updateConfig(this.settings.get());
+        this.render();
+      });
+      grid.appendChild(card);
+    }
+
+    row.appendChild(grid);
+    return row;
   }
 
   private makeTextRow(

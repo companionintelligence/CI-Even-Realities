@@ -1,0 +1,28 @@
+{
+  "name": "agent-hub",
+  "version": "0.1.0",
+  "description": "Local hub that exposes an OpenAI-compatible SSE surface in front of multiple agents (Claude Code, Codex, OpenClaw, Ollama/Hermes).",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "agent-hub": "dist/server.js"
+  },
+  "scripts": {
+    "dev": "node --import tsx --watch src/server.ts",
+    "start": "node --import tsx src/server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.18"
+  }
+}

@@ -110,6 +110,49 @@ export class GlassesRenderer {
   }
 
   /**
+   * Display a permission-prompt card on the HUD. Layout (5 lines, monospace):
+   *
+   *   ⚠  <tool>                       ← header (truncated to width)
+   *   <summary line 1>                ← word-wrapped summary
+   *   <summary line 2>
+   *
+   *   tap: <approve label>  2× : <deny>
+   *
+   * The card replaces any in-flight streaming display. While this card is
+   * up, the caller is expected to intercept ring gestures and route them
+   * to {@link ApiAdapter.approvePrompt} instead of paging.
+   */
+  async displayPromptCard(card: {
+    tool: string;
+    summary: string;
+    approveLabel?: string;
+    denyLabel?: string;
+  }): Promise<void> {
+    const approveLabel = card.approveLabel ?? 'Approve';
+    const denyLabel = card.denyLabel ?? 'Deny';
+    const header = truncate(`⚠ ${card.tool}`, CHARS_PER_LINE);
+    const summaryLines = wordWrap(stripMarkdown(card.summary), CHARS_PER_LINE);
+    // Leave room for header + blank line + footer.
+    const summaryBudget = Math.max(1, LINES_PER_SCREEN - 3);
+    const visible = summaryLines.slice(0, summaryBudget);
+    if (summaryLines.length > summaryBudget && visible.length > 0) {
+      visible[visible.length - 1] = truncate(
+        `${visible[visible.length - 1]} …`,
+        CHARS_PER_LINE
+      );
+    }
+    const footer = truncate(
+      `tap: ${approveLabel}  2x: ${denyLabel}`,
+      CHARS_PER_LINE
+    );
+    const lines = [header, '', ...visible, footer].slice(0, LINES_PER_SCREEN);
+    // Clear paginated state so a stray tap after dismissal does not page.
+    this.pages = [lines];
+    this.currentPage = 0;
+    await this.sendText(lines.join('\n'));
+  }
+
+  /**
    * Display a static text string (non-streaming).
    * Basic Markdown formatting is stripped before rendering.
    */
@@ -283,6 +326,15 @@ export function wordWrap(text: string, maxChars: number): string[] {
   }
 
   return lines;
+}
+
+/**
+ * Truncate to fit within `maxChars`, appending an ellipsis when clipped.
+ */
+export function truncate(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  if (maxChars <= 1) return text.slice(0, maxChars);
+  return `${text.slice(0, maxChars - 1)}…`;
 }
 
 /**

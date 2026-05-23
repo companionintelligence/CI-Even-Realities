@@ -6,7 +6,8 @@
  */
 
 import type { BackendConfig } from '../config/Settings.ts';
-import { parseSSEStream } from './StreamParser.ts';
+import type { AgentEvent } from './AgentEvent.ts';
+import { parseSSEEvents } from './StreamParser.ts';
 
 export interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -30,7 +31,27 @@ export class ChatCompletions {
     return this.history;
   }
 
+  /**
+   * Backwards-compatible text-only generator. Equivalent to filtering
+   * `sendEvents` to text deltas; preserved so existing callers that only
+   * care about text continue to work.
+   */
   async *send(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
+    for await (const evt of this.sendEvents(userText, signal)) {
+      if (evt.type === 'text' && evt.delta) yield evt.delta;
+      if (evt.type === 'error') throw new Error(evt.message);
+    }
+  }
+
+  /**
+   * Structured event generator. Yields text deltas plus any agent_* events
+   * the backend hub emits (permission prompts, status changes, etc.).
+   */
+  async *sendEvents(
+    userText: string,
+    signal?: AbortSignal,
+    metadata?: Record<string, unknown>
+  ): AsyncGenerator<AgentEvent> {
     // Push user message after confirming the request succeeds so that a
     // network or API error does not leave an orphaned message in history
     // that would corrupt the conversation context on the next call.
@@ -42,6 +63,13 @@ export class ChatCompletions {
       userMessage,
     ];
 
+    const body: Record<string, unknown> = {
+      model: this.config.model,
+      messages,
+      stream: this.config.streaming,
+    };
+    if (metadata) body['metadata'] = metadata;
+
     const response = await fetch(
       `${this.config.baseUrl}/v1/chat/completions`,
       {
@@ -50,11 +78,7 @@ export class ChatCompletions {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: this.config.model,
-          messages,
-          stream: this.config.streaming,
-        }),
+        body: JSON.stringify(body),
         signal,
       }
     );
@@ -69,21 +93,21 @@ export class ChatCompletions {
     // Request succeeded — commit the user message to history.
     this.history.push(userMessage);
 
+    let assistantContent = '';
     if (this.config.streaming) {
-      let assistantContent = '';
-      for await (const chunk of parseSSEStream(response)) {
-        assistantContent += chunk;
-        yield chunk;
+      for await (const evt of parseSSEEvents(response)) {
+        if (evt.type === 'text') assistantContent += evt.delta;
+        yield evt;
       }
-      this.history.push({ role: 'assistant', content: assistantContent });
     } else {
       const data = await response.json() as {
         choices: Array<{ message: { content: string } }>;
       };
-      const content = data.choices[0]?.message?.content ?? '';
-      this.history.push({ role: 'assistant', content });
-      yield content;
+      assistantContent = data.choices[0]?.message?.content ?? '';
+      if (assistantContent) yield { type: 'text', delta: assistantContent };
     }
+
+    this.history.push({ role: 'assistant', content: assistantContent });
 
     // Trim history to stay within the configured budget. Keep an even number
     // of entries so that user/assistant turns stay paired. Oldest messages

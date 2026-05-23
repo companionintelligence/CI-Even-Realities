@@ -31,13 +31,52 @@ import { ChatView } from './ui/ChatView.ts';
 import { SettingsView } from './ui/SettingsView.ts';
 
 async function main(): Promise<void> {
+  // Surface URL params early — used for `?screen=` deep-linking and for
+  // simulator-time overrides (the Tauri webview can't reach loopback so
+  // screenshots need a LAN-reachable hub URL passed via the URL).
+  //
+  // SECURITY: these overrides are applied for the **current session only**
+  // and never written to localStorage. Otherwise any malicious deep-link
+  // (e.g. emailed to the user) could silently rewrite the saved backend URL
+  // and exfiltrate future prompts + the stored API key.
+  const earlyParams = new URLSearchParams(window.location.search);
+  const baseUrlOverride = earlyParams.get('baseUrl');
+  const modelOverride = earlyParams.get('model');
+
   // ── State ─────────────────────────────────────────────────────────────────
   const settings = new Settings();
-  const adapter = new ApiAdapter(settings.get());
+  const persisted = settings.get();
+  // Build a non-persistent view of the config with overrides applied. The
+  // Settings object itself stays clean — Reset / future reads still return
+  // the user's saved values.
+  const effectiveCfg = {
+    ...persisted,
+    ...(baseUrlOverride ? { baseUrl: baseUrlOverride } : {}),
+    ...(modelOverride ? { model: modelOverride } : {}),
+  };
+  const adapter = new ApiAdapter(effectiveCfg);
   const tts = new TTSPlayer();
+
+  /**
+   * Glasses-side session id. Sent in chat-completion metadata so the hub can
+   * correlate approve-POSTs with the in-flight agent process.
+   */
+  const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  /** Currently displayed permission prompt, if any. */
+  let activePrompt: {
+    id: string;
+    approveOption: string;
+    denyOption: string;
+  } | null = null;
 
   // ── Root layout ───────────────────────────────────────────────────────────
   const root = document.getElementById('app')!;
+  // Hide the inline splash as soon as the first paint is ready.
+  // The CSS animation fades it out and pulls it out of the flow.
+  requestAnimationFrame(() => document.body.classList.add('ready'));
 
   // Status bar
   const statusBar = new StatusBar(root);
@@ -72,20 +111,28 @@ async function main(): Promise<void> {
 
   settingsView.hide();
 
-  // Tab switching
-  chatTab.addEventListener('click', () => {
+  function showChat(): void {
     chatTab.classList.add('tab-bar__tab--active');
     settingsTab.classList.remove('tab-bar__tab--active');
     chatView.show();
     settingsView.hide();
-  });
-
-  settingsTab.addEventListener('click', () => {
+  }
+  function showSettings(): void {
     settingsTab.classList.add('tab-bar__tab--active');
     chatTab.classList.remove('tab-bar__tab--active');
     settingsView.show();
     chatView.hide();
-  });
+  }
+
+  chatTab.addEventListener('click', showChat);
+  settingsTab.addEventListener('click', showSettings);
+
+  // Deep-link via ?screen=settings|prompt — used by the simulator's
+  // automation API to capture portal screenshots without manual clicks.
+  // The `prompt` variant fires after the SDK bridge is ready (below).
+  const params = new URLSearchParams(window.location.search);
+  const screen = params.get('screen');
+  if (screen === 'settings') showSettings();
 
   // Update model display in status bar
   statusBar.setModel(settings.get().model);
@@ -108,34 +155,65 @@ async function main(): Promise<void> {
 
     await renderer.showStatus('CI Companion ready');
 
+    // `?screen=prompt` — render a synthetic permission_prompt card so the
+    // simulator can capture portal screenshots. Disabled in production by
+    // the absence of the query param. The fake prompt cannot be approved
+    // (there's no live agent backing it).
+    if (screen === 'prompt') {
+      activePrompt = {
+        id: 'demo-prompt',
+        approveOption: 'approve',
+        denyOption: 'deny',
+      };
+      await renderer.displayPromptCard({
+        tool: 'Bash',
+        summary: 'Run `git push origin main` from /repo/ci-server?',
+      });
+    }
+    // `?screen=stream&q=<text>` — fire a real query through the configured
+    // backend on boot so the simulator can capture a mid-stream HUD frame.
+    if (screen === 'stream') {
+      const q = params.get('q') ?? 'What is bluetooth low energy in one short sentence?';
+      // Defer slightly so the bridge has settled before we kick off the stream.
+      setTimeout(() => { void sendToAI(q); }, 250);
+    }
+
     // ── Ring / touchbar gesture handling ──────────────────────────────────
     bridge.onEvenHubEvent(async (event) => {
       const listEvt = event.listEvent;
       const textEvt = event.textEvent;
       const sysEvt = event.sysEvent;
 
-      // Tap (click) → next page
+      // Tap (click) — approve active prompt if one is showing, else next page.
       if (
         listEvt?.eventType === OsEventTypeList.CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.CLICK_EVENT
       ) {
-        await renderer?.nextPage();
+        if (activePrompt) {
+          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
+        } else {
+          await renderer?.nextPage();
+        }
       }
 
-      // Double-click → abort in-flight request + clear conversation
+      // Double-click — deny active prompt if one is showing, else clear chat.
       if (
         listEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT
       ) {
-        currentAbortController?.abort();
-        currentAbortController = null;
-        adapter.clearHistory();
-        chatView.addMessage({
-          role: 'system',
-          content: 'Conversation cleared.',
-          timestamp: new Date(),
-        });
-        await renderer?.showStatus('Conversation cleared');
+        if (activePrompt) {
+          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
+        } else {
+          currentAbortController?.abort();
+          currentAbortController = null;
+          adapter.clearHistory();
+          chatView.addMessage({
+            role: 'system',
+            content: 'Conversation cleared.',
+            timestamp: new Date(),
+          });
+          await renderer?.showStatus('Conversation cleared');
+        }
       }
 
       // Scroll up → previous page
@@ -240,6 +318,7 @@ async function main(): Promise<void> {
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
     statusBar.setStatus('thinking');
+    activePrompt = null;
     try {
       await renderer?.showStatus('🤔 Thinking...');
     } catch (e) {
@@ -252,7 +331,6 @@ async function main(): Promise<void> {
       timestamp: new Date(),
     });
 
-    // Add placeholder assistant message
     chatView.addMessage({
       role: 'assistant',
       content: '…',
@@ -260,41 +338,75 @@ async function main(): Promise<void> {
     });
 
     let fullResponse = '';
+    let lastDisplayFlush = 0;
+    const DISPLAY_THROTTLE_MS = 150;
+
+    async function flushGlasses(force = false): Promise<void> {
+      if (!renderer || activePrompt) return;
+      const now = Date.now();
+      if (!force && now - lastDisplayFlush < DISPLAY_THROTTLE_MS) return;
+      lastDisplayFlush = now;
+      await renderer.displayText(fullResponse);
+    }
 
     try {
-      const stream = adapter.sendMessage(userText, signal);
+      const stream = adapter.sendMessageEvents(userText, signal, {
+        session_id: sessionId,
+      });
 
-      async function* streamWithChatViewUpdates(
-        gen: ReturnType<ApiAdapter['sendMessage']>
-      ): AsyncGenerator<string> {
-        for await (const chunk of gen) {
-          fullResponse += chunk;
+      for await (const evt of stream) {
+        if (evt.type === 'text') {
+          fullResponse += evt.delta;
           chatView.updateLastAssistantMessage(fullResponse);
-          yield chunk;
+          await flushGlasses();
+        } else if (evt.type === 'agent_status') {
+          const label = evt.label ?? evt.kind;
+          await renderer?.showStatus(`⏳ ${label}`);
+          statusBar.setStatus(
+            evt.kind === 'thinking' || evt.kind === 'awaiting_input'
+              ? 'thinking'
+              : evt.kind === 'executing'
+                ? 'processing'
+                : bridge ? 'connected' : 'disconnected'
+          );
+        } else if (evt.type === 'permission_prompt') {
+          const approveOpt =
+            evt.options.find((o) => o.id === 'approve') ?? evt.options[0];
+          const denyOpt =
+            evt.options.find((o) => o.id === 'deny') ??
+            evt.options[1] ??
+            evt.options[0];
+          activePrompt = {
+            id: evt.id,
+            approveOption: approveOpt?.id ?? 'approve',
+            denyOption: denyOpt?.id ?? 'deny',
+          };
+          chatView.addMessage({
+            role: 'system',
+            content: `🔐 ${evt.tool}: ${evt.summary}`,
+            timestamp: new Date(),
+          });
+          await renderer?.displayPromptCard({
+            tool: evt.tool,
+            summary: evt.summary,
+            approveLabel: approveOpt?.label,
+            denyLabel: denyOpt?.label,
+          });
+          statusBar.setStatus('thinking');
+        } else if (evt.type === 'error') {
+          throw new Error(evt.message);
         }
       }
 
-      if (renderer) {
-        await renderer.displayStreaming(streamWithChatViewUpdates(stream));
-      } else {
-        for await (const chunk of stream) {
-          fullResponse += chunk;
-          chatView.updateLastAssistantMessage(fullResponse);
-        }
-      }
-
-      // Update glasses preview in the UI
+      await flushGlasses(true);
       chatView.updateGlassesPreview(fullResponse);
 
-      // Optional TTS
       const cfg = settings.get();
-      if (cfg.ttsEnabled) {
+      if (cfg.ttsEnabled && fullResponse) {
         tts.setEnabled(true);
         tts.speak(fullResponse);
       }
     } catch (e) {
-      // Ignore AbortError — this is an intentional cancellation (e.g. user
-      // double-tapped to clear, or a new request was started).
       if (e instanceof DOMException && e.name === 'AbortError') {
         chatView.updateLastAssistantMessage('(cancelled)');
         return;
@@ -309,9 +421,50 @@ async function main(): Promise<void> {
     }
   }
 
+  async function respondToPrompt(optionId: string, hudMsg: string): Promise<void> {
+    if (!activePrompt) return;
+    const prompt = activePrompt;
+    // Clear optimistically; we restore it on failure so the user can retry
+    // (the prompt card is still on-screen unless something else over-wrote
+    // the HUD, but the gesture state machine needs activePrompt to route
+    // taps back to respondToPrompt instead of nextPage).
+    activePrompt = null;
+    try {
+      const ok = await adapter.approvePrompt(sessionId, prompt.id, optionId);
+      if (ok) {
+        await renderer?.showStatus(hudMsg);
+        chatView.addMessage({
+          role: 'system',
+          content: `${hudMsg} (${prompt.id})`,
+          timestamp: new Date(),
+        });
+      } else {
+        // Hub rejected — surface the actual outcome and let the user retry.
+        activePrompt = prompt;
+        await renderer?.showStatus('❌ approve failed — tap to retry');
+        chatView.addMessage({
+          role: 'system',
+          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — tap to retry`,
+          timestamp: new Date(),
+        });
+      }
+    } catch (e) {
+      console.error('approve failed:', e);
+      activePrompt = prompt;
+      const msg = e instanceof Error ? e.message : String(e);
+      await renderer?.showStatus('❌ approve failed — tap to retry');
+      chatView.addMessage({
+        role: 'system',
+        content: `❌ Approve threw: ${msg}`,
+        timestamp: new Date(),
+      });
+    }
+  }
+
   // ── Mic button callbacks from ChatView ────────────────────────────────────
   chatView.onMicStarted(handleMicStart);
   chatView.onMicStopped(handleMicStop);
+  chatView.onQuickActionPicked((prompt) => { void sendToAI(prompt); });
 
   // ── Add welcome message ────────────────────────────────────────────────────
   chatView.addMessage({
