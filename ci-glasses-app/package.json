@@ -18,17 +18,17 @@
     "simulator": "evenhub-simulator http://localhost:5173/"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.7"
+    "@evenrealities/even_hub_sdk": "^0.0.10"
   },
   "devDependencies": {
     "@evenrealities/evenhub-cli": "^0.1.13",
     "@evenrealities/evenhub-simulator": "^0.7.3",
-    "@types/node": "^20.0.0",
-    "eslint": "^10.0.3",
-    "jsdom": "^28.1.0",
-    "typescript": "^5.4.0",
-    "typescript-eslint": "^8.56.1",
-    "vite": "^5.2.0",
-    "vitest": "^4.0.18"
+    "@types/node": "^25.9.1",
+    "eslint": "^10.4.1",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.0",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
   }
 }
