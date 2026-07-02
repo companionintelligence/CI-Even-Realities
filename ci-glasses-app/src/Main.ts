@@ -15,7 +15,7 @@
 // same-origin asset by Vite, so it loads under the app's strict CSP
 // (font-src 'self' data:) with NO Google Fonts / CDN request. Imported before
 // styles.css so the @font-face rules register ahead of the token layer that
-// references the "Montserrat" family via --font-sans.
+// references the "Montserrat Variable" family via --font-sans.
 import '@fontsource-variable/montserrat';
 
 import './ui/styles.css';

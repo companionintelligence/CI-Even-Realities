@@ -84,9 +84,11 @@
   --color-warning:      #ffba3a;
   --color-success:      var(--color-accent);
 
-  /* Type system — Montserrat per CI canonical style guide, with system fallback. */
-  --font-sans:  "Montserrat", "Inter", -apple-system, BlinkMacSystemFont,
-                "Segoe UI", Roboto, sans-serif;
+  /* Type system — Montserrat per CI canonical style guide, with system fallback.
+     "Montserrat Variable" is the family @fontsource-variable/montserrat registers
+     (see Main.ts import); "Montserrat" retained for a statically-installed fallback. */
+  --font-sans:  "Montserrat Variable", "Montserrat", "Inter", -apple-system,
+                BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono:  "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas,
                 monospace;
 
