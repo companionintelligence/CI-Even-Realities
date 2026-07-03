@@ -7,6 +7,54 @@
  * 8-pt grid, and minimal chrome.
  */
 
+/**
+ * Canonical shadcn token layer (alias).
+ *
+ * Source of truth: CI-Hub/packages/frontend/src/styles/globals.css (authored in
+ * oklch). This HUD is a dark, offline surface, so it carries the CI-Hub **dark**
+ * palette. The bespoke --color-* variables below alias onto these canon names
+ * where the value is identical, so the HUD consumes canonical tokens (--primary,
+ * --accent, …) while every existing rule keeps working unchanged. Teal values
+ * are exactly those introduced in the first-wave commit (--primary #abd4d8).
+ *
+ * oklch values carry an inline hex comment for reviewer legibility.
+ */
+:root {
+  --background: oklch(0.1901 0.0321 234.379); /* #041620 */
+  --foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
+  --card: oklch(0.2394 0.0375 233.156); /* #0a222e */
+  --card-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
+  --popover: oklch(0.2394 0.0375 233.156); /* #0a222e */
+  --popover-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
+  --primary: oklch(84.20% 0.0434 203.701); /* #abd4d8 */
+  --primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
+  --secondary: oklch(0.2394 0.0375 233.156); /* #0a222e */
+  --secondary-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
+  --muted: oklch(0.2394 0.0375 233.156); /* #0a222e */
+  --muted-foreground: oklch(0.6760 0.0193 253.397); /* #8f98a3 */
+  --accent: oklch(0.4775 0.0615 204.345); /* #2c676d */
+  --accent-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
+  --destructive: oklch(0.6964 0.1573 21.990); /* #ef7070 */
+  --destructive-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
+  --border: oklch(0.4775 0.0615 204.345); /* #2c676d */
+  --input: oklch(0.6357 0.0509 224.103); /* #6992a2 */
+  --ring: oklch(0.8497 0.1407 169.678); /* #58ebbf */
+  --chart-1: oklch(0.8497 0.1407 169.678); /* #58ebbf */
+  --chart-2: oklch(0.6355 0.0856 195.215); /* #409b9b */
+  --chart-3: oklch(0.6292 0.1072 191.566); /* #079d99 */
+  --chart-4: oklch(0.6907 0.0582 208.988); /* #70a6af */
+  --chart-5: oklch(0.4775 0.0615 204.345); /* #2c676d */
+  --sidebar: oklch(0.1901 0.0321 234.379); /* #041620 */
+  --sidebar-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
+  --sidebar-primary: oklch(0.8420 0.0434 203.701); /* #abd4d8 */
+  --sidebar-primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
+  --sidebar-accent: oklch(0.2799 0.0408 260.329); /* #1d293d */
+  --sidebar-accent-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
+  --sidebar-border: oklch(0.4775 0.0615 204.345); /* #2c676d */
+  --sidebar-ring: oklch(0.8497 0.1407 169.678); /* #58ebbf */
+  --radius: 0.625rem;
+}
+
 :root {
   /* Surface palette */
   --color-bg:           #060606;
@@ -16,11 +64,14 @@
   --color-border:       #262626;
   --color-border-hi:    #353535;
 
-  /* Phosphor green — matches the G2 MicroLED */
-  --color-accent:       #2bdc60;
-  --color-accent-soft:  rgba(43, 220, 96, 0.18);
-  --color-accent-dim:   #1b8c3c;
-  --color-accent-glow:  rgba(43, 220, 96, 0.45);
+  /* CI canonical teal (brand override, owner-approved) — dark HUD --primary #abd4d8.
+     These alias onto the canon token layer above: the accent IS the dark
+     --primary, and its foreground IS --primary-foreground (both #041620). */
+  --color-accent:       var(--primary);              /* #abd4d8 */
+  --color-accent-fg:    var(--primary-foreground);   /* #041620 */
+  --color-accent-soft:  rgba(171, 212, 216, 0.18);
+  --color-accent-dim:   #5c8f94;
+  --color-accent-glow:  rgba(171, 212, 216, 0.45);
 
   /* Type */
   --color-text:         #f0f0f0;
@@ -33,14 +84,16 @@
   --color-warning:      #ffba3a;
   --color-success:      var(--color-accent);
 
-  /* Type system — FK Grotesk Neue per Even guidelines, with system fallback. */
-  --font-sans:  "FK Grotesk Neue", "Inter", -apple-system, BlinkMacSystemFont,
-                "Segoe UI", Roboto, sans-serif;
+  /* Type system — Montserrat per CI canonical style guide, with system fallback.
+     "Montserrat Variable" is the family @fontsource-variable/montserrat registers
+     (see Main.ts import); "Montserrat" retained for a statically-installed fallback. */
+  --font-sans:  "Montserrat Variable", "Montserrat", "Inter", -apple-system,
+                BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono:  "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas,
                 monospace;
 
+  /* --radius (0.625rem = 10px) is defined in the canon token layer above. */
   --radius-sm:  6px;
-  --radius:     10px;
   --radius-lg:  14px;
   --radius-xl:  18px;
   --spacing:    16px;
@@ -80,7 +133,7 @@ html, body {
   margin: 0 auto;
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%,
-      rgba(43, 220, 96, 0.06), transparent 60%),
+      rgba(171, 212, 216, 0.06), transparent 60%),
     var(--color-bg);
 }
 
@@ -300,8 +353,8 @@ textarea:focus-visible {
 }
 .message--user {
   align-self: flex-end;
-  background: linear-gradient(180deg, #2bdc60 0%, #1ba94a 100%);
-  color: #0b1f10;
+  background: linear-gradient(180deg, #abd4d8 0%, #5c8f94 100%);
+  color: #041620;
   border-bottom-right-radius: 4px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset;
   font-weight: 500;
@@ -525,8 +578,8 @@ textarea:focus-visible {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:not(:disabled):active { transform: scale(0.98); }
 .btn--primary {
-  background: linear-gradient(180deg, #2bdc60, #1ba94a);
-  color: #061508;
+  background: linear-gradient(180deg, #abd4d8, #5c8f94);
+  color: #041620;
   font-weight: 600;
 }
 .btn--secondary {
@@ -552,7 +605,7 @@ textarea:focus-visible {
   white-space: pre-line;
 }
 .connection-result--ok {
-  background: rgba(43, 220, 96, 0.08);
+  background: rgba(171, 212, 216, 0.08);
   color: var(--color-success);
   border: 1px solid var(--color-accent-dim);
 }
