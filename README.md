@@ -10,16 +10,27 @@ For the full plan and design see [`planning.md`](planning.md) and [`architecture
 
 ---
 
+## Interface
+
+The CI Companion phone WebView — the control surface paired with the G2 glasses. Voice-first: tap the mic or long-press the G2 touchbar, and answers stream onto the glasses HUD (mirrored in the **Glasses display** preview).
+
+<img src="docs/ui/glasses-dark.png" alt="CI Companion HUD — dark surface with chat and glasses-display preview" width="380">
+
+On the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/style) — teal primary, Montserrat, light + dark. This is a heads-up display: it ships a single dark surface (`color-scheme: dark`), tuned for the Even Realities G2 phosphor aesthetic.
+
+---
+
 ## Table of Contents
 
-1. [What this is](#what-this-is)
-2. [Architecture overview](#architecture-overview)
-3. [Quick start](#quick-start)
-4. [Voice pipeline](#voice-pipeline)
-5. [AI backend compatibility](#ai-backend-compatibility)
-6. [Glasses display](#glasses-display)
-7. [Project structure](#project-structure)
-8. [Further reading](#further-reading)
+1. [Interface](#interface)
+2. [What this is](#what-this-is)
+3. [Architecture overview](#architecture-overview)
+4. [Quick start](#quick-start)
+5. [Voice pipeline](#voice-pipeline)
+6. [AI backend compatibility](#ai-backend-compatibility)
+7. [Glasses display](#glasses-display)
+8. [Project structure](#project-structure)
+9. [Further reading](#further-reading)
 
 ---
 
