@@ -106,6 +106,54 @@
   --tx-mid:  220ms cubic-bezier(.2,.7,.3,1);
 }
 
+/* ─── CI enriched palette v0.2.0 ─────────────────────────────────────────────
+   Additive tokens matching @companionintelligence/tokens v0.2.0. Nothing above
+   is modified — --primary and the existing --radius-* scale are untouched.
+   This HUD is a DARK-ONLY surface, so BASE and DARK live together in one scope;
+   there is no light scope. --radius-sm / --radius-lg / --radius-xl are
+   intentionally OMITTED from the enriched radius set because they already exist
+   above with bespoke pixel values; overriding them would change existing
+   component rendering (this must stay additive). The new --radius-md and
+   --radius-2xl are added, and the radius-* fallbacks resolve against --radius
+   (0.625rem) from the canon layer. */
+:root {
+  /* enriched — brand teal ramp + accent hues (mode-independent) */
+  --teal-50:  #eef7f8;
+  --teal-100: #d3e9ec;
+  --teal-200: #abd4d8;
+  --teal-300: #7fbcc2;
+  --teal-400: #4c9aa3;
+  --teal-500: #1c8791;
+  --teal-600: #0f717a;
+  --teal-700: #0d5f67;
+  --teal-800: #0e4a52;
+  --teal-900: #0a222e;
+  --teal-950: #041620;
+  --aqua:        #00a9a7;
+  --aqua-light:  #72ddd4;
+  --mint:        #58ebbf;
+  --teal-accent: #2c676d;
+  --teal-mid:    #409b9b;
+
+  /* enriched — radius scale (mode-independent; sm/lg/xl kept from layer above) */
+  --radius-md:  calc(var(--radius, 0.625rem) - 2px);
+  --radius-2xl: calc(var(--radius, 0.625rem) + 10px);
+
+  /* enriched — semantic status + gradients + elevation (dark) */
+  --success:            #4ade80;
+  --success-foreground: #052e16;
+  --warning:            #fbbf24;
+  --warning-foreground: #422006;
+  --info:               #38bdf8;
+  --info-foreground:    #082f49;
+  --gradient-brand:  linear-gradient(135deg, #0f717a, #00a9a7);
+  --gradient-hero:   linear-gradient(135deg, #e8f9f8, #abd4d8);
+  --gradient-aurora: radial-gradient(120% 90% at 50% -10%, rgba(64, 155, 155, .28), transparent 60%);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 12px 30px rgba(0, 0, 0, .45);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

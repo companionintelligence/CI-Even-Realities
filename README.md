@@ -14,9 +14,30 @@ For the full plan and design see [`planning.md`](planning.md) and [`architecture
 
 The CI Companion phone WebView — the control surface paired with the G2 glasses. Voice-first: tap the mic or long-press the G2 touchbar, and answers stream onto the glasses HUD (mirrored in the **Glasses display** preview).
 
-<img src="docs/ui/glasses-dark.png" alt="CI Companion HUD — dark surface with chat and glasses-display preview" width="380">
+It ships on the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/style) — teal `--primary` (`#abd4d8`), Montserrat. As a heads-up display it is **dark-only**: a single surface pinned to `color-scheme: dark`, tuned for the Even Realities G2 phosphor aesthetic. There is no light theme by design, so every screen below is captured on the one dark surface.
 
-On the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/style) — teal primary, Montserrat, light + dark. This is a heads-up display: it ships a single dark surface (`color-scheme: dark`), tuned for the Even Realities G2 phosphor aesthetic.
+The WebView has two tabs — **Chat** and **Settings** — plus two HUD overlays (permission prompts, mid-stream frames) that only render inside the native Even Hub runtime. Screens below are captured headlessly from the production Vite build; the shots are regenerated with the Playwright helper in `docs/ui/`.
+
+### Chat
+
+The default tab and landing surface. Shows the CI Companion mark, quick-prompt suggestion chips (_What time is it?_, _Quick weather_, _Read me my next event_, _Set a 5-min timer_, _Define a word_), the live **Glasses display** preview that mirrors the G2 HUD, and the mic dock at the bottom. The status bar reports glasses-connection state and the active model.
+
+<img src="docs/ui/glasses-chat-dark.png" alt="CI Companion — Chat tab: CI mark, quick-prompt chips, glasses-display preview, and mic dock on the dark HUD surface" width="380">
+
+### Settings
+
+The configuration tab. The **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming. Below it are the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Everything persists client-side (localStorage) — no backend is contacted to render this screen. The teal `--primary` accent marks the active tab and the selected backend card.
+
+<img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: AI Backend kind picker with the CI teal accent on the selected card, plus System Prompt, STT, TTS, and Reset sections" width="380">
+
+### HUD overlays (native runtime only)
+
+Two more surfaces render on top of the Chat tab but **cannot be captured headlessly** — they are gated on the live Even Hub SDK bridge (`waitForEvenAppBridge`), which only resolves inside the Even Hub app or its simulator:
+
+- **Permission prompt** (`?screen=prompt`) — the approve/deny card the HUD shows when a hub-routed agent (Claude Code / Codex / OpenClaw) requests a tool. Ring single-tap approves, double-tap denies.
+- **Mid-stream frame** (`?screen=stream`) — a live answer streaming onto the G2 display, which additionally needs a reachable AI backend.
+
+In a plain headless browser the bridge never resolves, so both deep-links fall through to the Chat tab shown above. These are documented here rather than screenshotted so nothing on this page is fabricated; capture them from the Even Hub simulator when a HUD reference is needed.
 
 ---
 
