@@ -16,7 +16,7 @@ The CI Companion phone WebView — the control surface paired with the G2 glasse
 
 It ships on the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/style) — teal `--primary` (`#abd4d8`), Montserrat. As a heads-up display it is **dark-only**: a single surface pinned to `color-scheme: dark`, tuned for the Even Realities G2 phosphor aesthetic. There is no light theme by design, so every screen below is captured on the one dark surface.
 
-The WebView has two tabs — **Chat** and **Settings** — plus two HUD overlays (permission prompts, mid-stream frames) that only render inside the native Even Hub runtime. Screens below are captured headlessly from the production Vite build; the shots are regenerated with the Playwright helper in `docs/ui/`.
+The WebView has two tabs — **Chat** and **Settings** — plus two HUD overlays (permission prompts, mid-stream frames) that only render inside the native Even Hub runtime. Screens below are captured headlessly from the production Vite build (`npm run build` + serve), so they reflect exactly what ships.
 
 ### Chat
 
