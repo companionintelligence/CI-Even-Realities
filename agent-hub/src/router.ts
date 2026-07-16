@@ -16,6 +16,7 @@ import { bindSession, getSession } from './sessions.ts';
 import type { HubConfig } from './config.ts';
 import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
 import { classifyIntent } from './routing/intent.ts';
+import { wantsMemoryAugment, withMemoryAugment } from './middleware/memory.ts';
 
 export interface RouterDeps {
   config: HubConfig;
@@ -178,7 +179,7 @@ export function makeRouter(deps: RouterDeps) {
     }
 
     if (method === 'POST' && url === '/v1/chat/completions') {
-      return handleChatCompletions(req, res, registry, defaultKind);
+      return handleChatCompletions(req, res, registry, defaultKind, deps.config);
     }
 
     const approveMatch = url.match(/^\/v1\/sessions\/([^/]+)\/approve$/);
@@ -226,7 +227,8 @@ async function handleChatCompletions(
   req: IncomingMessage,
   res: ServerResponse,
   registry: Map<BackendKind, Adapter>,
-  defaultKind: BackendKind
+  defaultKind: BackendKind,
+  cfg: HubConfig
 ): Promise<void> {
   let body: ChatRequest;
   try {
@@ -240,8 +242,22 @@ async function handleChatCompletions(
   }
 
   const selection = selectAdapter(body, registry, defaultKind);
-  const adapter = selection.adapter;
+  let adapter = selection.adapter;
   body = selection.body;
+
+  // Memory as a layer: a request flagged `metadata.use_memory === true` gets
+  // CI-Server recall prepended and its finished turn written back, whatever
+  // chat backend it targets ('auto' included — the wrap applies to the resolved
+  // target and the routed body). The `memory` adapter itself is exempt — it IS
+  // the recall — and an unconfigured CI-Server means no augmentation.
+  if (wantsMemoryAugment(body, cfg.ciServerUrl, adapter.kind)) {
+    adapter = withMemoryAugment(adapter, {
+      baseUrl: cfg.ciServerUrl,
+      apiKey: cfg.ciServerApiKey,
+      recallPath: cfg.ciServerMemoryPath,
+      turnPath: cfg.ciServerTurnPath,
+    });
+  }
 
   const metaSessionId =
     typeof body.metadata?.['session_id'] === 'string'

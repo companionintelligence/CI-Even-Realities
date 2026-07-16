@@ -60,6 +60,8 @@ export interface HubConfig {
   ciServerApiKey: string;
   /** Recall path; `/memory/recall` direct, `/api/memory/recall` via Hub proxy. */
   ciServerMemoryPath: string;
+  /** Turn write-back path used by memory augmentation (metadata.use_memory). */
+  ciServerTurnPath: string;
 }
 
 const KINDS = new Set<BackendKind>([
@@ -126,5 +128,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     ciServerUrl: env['CI_SERVER_URL'] ?? '',
     ciServerApiKey: env['CI_SERVER_API_KEY'] ?? env['CI_SERVER_TOKEN'] ?? '',
     ciServerMemoryPath: env['CI_SERVER_MEMORY_PATH'] ?? '/memory/recall',
+    ciServerTurnPath: env['CI_SERVER_TURN_PATH'] ?? '/memory/turn',
   };
 }
