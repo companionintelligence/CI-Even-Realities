@@ -356,6 +356,20 @@ async function main(): Promise<void> {
   // ── Voice pipeline ────────────────────────────────────────────────────────
   let currentAbortController: AbortController | null = null;
 
+  /**
+   * Fire a HUD update without letting a render failure break the app flow.
+   * The phone webview is the source of truth; the glasses display is
+   * best-effort (the SDK can hand back a bridge whose container calls fail,
+   * e.g. in plain-browser mode).
+   */
+  async function safeHud(update: () => Promise<unknown> | undefined): Promise<void> {
+    try {
+      await update();
+    } catch (e) {
+      console.warn('Glasses HUD update failed — continuing phone-only:', e);
+    }
+  }
+
   async function handleMicStart(): Promise<void> {
     if (!micCapture) return;
     try {
@@ -376,7 +390,7 @@ async function main(): Promise<void> {
     statusBar.setStatus('processing');
     chatView.setMicState('idle');
     chatView.setProcessingState(true);
-    await renderer?.showStatus('⏳ Transcribing...');
+    await safeHud(() => renderer?.showStatus('⏳ Transcribing...'));
 
     let userText = '';
     try {
@@ -443,12 +457,23 @@ async function main(): Promise<void> {
     let lastDisplayFlush = 0;
     const DISPLAY_THROTTLE_MS = 150;
 
+    let hudRenderFailed = false;
     async function flushGlasses(force = false): Promise<void> {
-      if (!renderer || activePrompt) return;
+      if (!renderer || activePrompt || hudRenderFailed) return;
       const now = Date.now();
       if (!force && now - lastDisplayFlush < DISPLAY_THROTTLE_MS) return;
       lastDisplayFlush = now;
-      await renderer.displayText(fullResponse);
+      try {
+        await renderer.displayText(fullResponse);
+      } catch (e) {
+        // A HUD render failure must never kill the conversation: the phone
+        // webview still shows the streamed answer. Seen live when the SDK
+        // resolves a bridge in a plain browser whose container calls then
+        // fail ("both textContainerUpgrade and rebuildPageContainer failed").
+        // Warn once and stop flushing for the rest of this turn.
+        hudRenderFailed = true;
+        console.warn('Glasses HUD render failed — continuing phone-only:', e);
+      }
     }
 
     try {
@@ -467,7 +492,7 @@ async function main(): Promise<void> {
           await flushGlasses();
         } else if (evt.type === 'agent_status') {
           const label = evt.label ?? evt.kind;
-          await renderer?.showStatus(`⏳ ${label}`);
+          await safeHud(() => renderer?.showStatus(`⏳ ${label}`));
           statusBar.setStatus(
             evt.kind === 'thinking' || evt.kind === 'awaiting_input'
               ? 'thinking'
@@ -492,12 +517,14 @@ async function main(): Promise<void> {
             content: `🔐 ${evt.tool}: ${evt.summary}`,
             timestamp: new Date(),
           });
-          await renderer?.displayPromptCard({
-            tool: evt.tool,
-            summary: evt.summary,
-            approveLabel: approveOpt?.label,
-            denyLabel: denyOpt?.label,
-          });
+          await safeHud(() =>
+            renderer?.displayPromptCard({
+              tool: evt.tool,
+              summary: evt.summary,
+              approveLabel: approveOpt?.label,
+              denyLabel: denyOpt?.label,
+            })
+          );
           statusBar.setStatus('thinking');
         } else if (evt.type === 'error') {
           throw new Error(evt.message);
@@ -520,7 +547,7 @@ async function main(): Promise<void> {
       const errMsg = e instanceof Error ? e.message : String(e);
       console.error('AI request failed:', e);
       chatView.updateLastAssistantMessage(`❌ Error: ${errMsg}`);
-      await renderer?.showStatus(`❌ ${errMsg.slice(0, 60)}`);
+      await safeHud(() => renderer?.showStatus(`❌ ${errMsg.slice(0, 60)}`));
     } finally {
       statusBar.setStatus(bridge ? 'connected' : 'disconnected');
       chatView.setProcessingState(false);
