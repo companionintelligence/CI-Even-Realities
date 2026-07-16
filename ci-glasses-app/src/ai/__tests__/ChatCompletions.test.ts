@@ -19,6 +19,7 @@ const BASE_CONFIG: BackendConfig = {
   oidcClientId: 'ci-hub',
   oidcScope: 'openid email profile offline_access',
   hubBaseUrl: 'http://localhost',
+  useMemory: false,
 };
 
 /** Non-streaming success response */

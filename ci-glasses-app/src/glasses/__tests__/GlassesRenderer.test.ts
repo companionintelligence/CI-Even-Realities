@@ -1,5 +1,57 @@
-import { describe, it, expect } from 'vitest';
-import { wordWrap, paginate } from '../GlassesRenderer.ts';
+import { describe, it, expect, vi } from 'vitest';
+import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
+import {
+  StartUpPageCreateResult,
+  TextContainerUpgrade,
+} from '@evenrealities/even_hub_sdk';
+import { GlassesRenderer, wordWrap, paginate } from '../GlassesRenderer.ts';
+
+/** Minimal fake Even Hub bridge capturing text sent to the display. */
+function makeFakeBridge() {
+  const textContainerUpgrade = vi.fn(async (_u: TextContainerUpgrade) => true);
+  const bridge = {
+    createStartUpPageContainer: vi.fn(async () => StartUpPageCreateResult.success),
+    textContainerUpgrade,
+    rebuildPageContainer: vi.fn(async () => true),
+  } as unknown as EvenAppBridge;
+  return { bridge, textContainerUpgrade };
+}
+
+describe('displayPromptCard', () => {
+  it('renders the safety-inverted footer: double-tap approves, single tap denies', async () => {
+    const { bridge, textContainerUpgrade } = makeFakeBridge();
+    const renderer = new GlassesRenderer(bridge);
+
+    await renderer.displayPromptCard({
+      tool: 'Bash',
+      summary: 'Run `git push origin main`?',
+    });
+
+    const calls = textContainerUpgrade.mock.calls;
+    const sent = calls[calls.length - 1][0].content ?? '';
+    const lines = sent.split('\n');
+    // Approve must require the deliberate gesture (double-tap); a stray
+    // single tap only denies.
+    expect(lines[lines.length - 1]).toBe('2×tap: Approve · tap: Deny');
+  });
+
+  it('uses the prompt-supplied option labels in the footer', async () => {
+    const { bridge, textContainerUpgrade } = makeFakeBridge();
+    const renderer = new GlassesRenderer(bridge);
+
+    await renderer.displayPromptCard({
+      tool: 'Write',
+      summary: 'Create /tmp/notes.md?',
+      approveLabel: 'Yes',
+      denyLabel: 'No',
+    });
+
+    const calls = textContainerUpgrade.mock.calls;
+    const sent = calls[calls.length - 1][0].content ?? '';
+    const lines = sent.split('\n');
+    expect(lines[lines.length - 1]).toBe('2×tap: Yes · tap: No');
+  });
+});
 
 describe('wordWrap', () => {
   it('returns a single empty line for empty string', () => {

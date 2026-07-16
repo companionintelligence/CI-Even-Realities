@@ -281,25 +281,30 @@ async function main(): Promise<void> {
       const textEvt = event.textEvent;
       const sysEvt = event.sysEvent;
 
-      // Tap (click) — approve active prompt if one is showing, else next page.
+      // Tap (click) — DENY active prompt if one is showing, else next page.
+      // Deny on single-tap is deliberate: an accidental brush of the touchbar
+      // must never approve an agent action (e.g. a Bash command). A denial is
+      // recoverable — the agent can simply re-ask.
       if (
         listEvt?.eventType === OsEventTypeList.CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.CLICK_EVENT
       ) {
         if (activePrompt) {
-          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
+          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
         } else {
           await renderer?.nextPage();
         }
       }
 
-      // Double-click — deny active prompt if one is showing, else clear chat.
+      // Double-click — APPROVE active prompt if one is showing (a double-tap
+      // is a deliberate gesture, unlikely to happen by accident), else clear
+      // the conversation.
       if (
         listEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT
       ) {
         if (activePrompt) {
-          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
+          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
         } else {
           currentAbortController?.abort();
           currentAbortController = null;
@@ -447,8 +452,12 @@ async function main(): Promise<void> {
     }
 
     try {
+      // Read settings at call time so a mid-session toggle takes effect on
+      // the very next message. `use_memory` asks the hub to recall from
+      // Companion Memory before replying and save the exchange back after.
       const stream = adapter.sendMessageEvents(userText, signal, {
         session_id: sessionId,
+        use_memory: settings.get().useMemory,
       });
 
       for await (const evt of stream) {
@@ -538,10 +547,10 @@ async function main(): Promise<void> {
       } else {
         // Hub rejected — surface the actual outcome and let the user retry.
         activePrompt = prompt;
-        await renderer?.showStatus('❌ approve failed — tap to retry');
+        await renderer?.showStatus('❌ failed — 2×tap: approve · tap: deny');
         chatView.addMessage({
           role: 'system',
-          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — tap to retry`,
+          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — retry (2×tap: approve · tap: deny)`,
           timestamp: new Date(),
         });
       }
@@ -549,7 +558,7 @@ async function main(): Promise<void> {
       console.error('approve failed:', e);
       activePrompt = prompt;
       const msg = e instanceof Error ? e.message : String(e);
-      await renderer?.showStatus('❌ approve failed — tap to retry');
+      await renderer?.showStatus('❌ failed — 2×tap: approve · tap: deny');
       chatView.addMessage({
         role: 'system',
         content: `❌ Approve threw: ${msg}`,
