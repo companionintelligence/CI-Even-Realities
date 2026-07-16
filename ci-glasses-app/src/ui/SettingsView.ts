@@ -384,6 +384,14 @@ export class SettingsView {
     }
     row.appendChild(grid);
     section.appendChild(row);
+
+    section.appendChild(
+      this.makeToggleRow('Memory-augmented chat', 'useMemory', cfg.useMemory, {
+        hint:
+          'Recall from Companion Memory before each reply and save the conversation back to it — needs your agent-hub connected to CI-Server',
+      })
+    );
+
     return section;
   }
 
@@ -435,6 +443,7 @@ export class SettingsView {
       name: string;
       hint: string;
     }> = [
+      { value: 'auto',       name: 'Assistant',   hint: 'Auto-route by intent via agent-hub' },
       { value: 'local-llm',  name: 'Local LLM',   hint: 'Ollama / vLLM on your Hub' },
       { value: 'openai',     name: 'OpenAI-like', hint: 'Direct or any provider' },
       { value: 'hermes',     name: 'Hermes',      hint: 'Agent via agent-hub' },

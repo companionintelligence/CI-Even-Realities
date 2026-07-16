@@ -281,25 +281,30 @@ async function main(): Promise<void> {
       const textEvt = event.textEvent;
       const sysEvt = event.sysEvent;
 
-      // Tap (click) — approve active prompt if one is showing, else next page.
+      // Tap (click) — DENY active prompt if one is showing, else next page.
+      // Deny on single-tap is deliberate: an accidental brush of the touchbar
+      // must never approve an agent action (e.g. a Bash command). A denial is
+      // recoverable — the agent can simply re-ask.
       if (
         listEvt?.eventType === OsEventTypeList.CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.CLICK_EVENT
       ) {
         if (activePrompt) {
-          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
+          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
         } else {
           await renderer?.nextPage();
         }
       }
 
-      // Double-click — deny active prompt if one is showing, else clear chat.
+      // Double-click — APPROVE active prompt if one is showing (a double-tap
+      // is a deliberate gesture, unlikely to happen by accident), else clear
+      // the conversation.
       if (
         listEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT ||
         textEvt?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT
       ) {
         if (activePrompt) {
-          await respondToPrompt(activePrompt.denyOption, '🚫 Denied');
+          await respondToPrompt(activePrompt.approveOption, '✅ Approved');
         } else {
           currentAbortController?.abort();
           currentAbortController = null;
@@ -351,6 +356,20 @@ async function main(): Promise<void> {
   // ── Voice pipeline ────────────────────────────────────────────────────────
   let currentAbortController: AbortController | null = null;
 
+  /**
+   * Fire a HUD update without letting a render failure break the app flow.
+   * The phone webview is the source of truth; the glasses display is
+   * best-effort (the SDK can hand back a bridge whose container calls fail,
+   * e.g. in plain-browser mode).
+   */
+  async function safeHud(update: () => Promise<unknown> | undefined): Promise<void> {
+    try {
+      await update();
+    } catch (e) {
+      console.warn('Glasses HUD update failed — continuing phone-only:', e);
+    }
+  }
+
   async function handleMicStart(): Promise<void> {
     if (!micCapture) return;
     try {
@@ -371,7 +390,7 @@ async function main(): Promise<void> {
     statusBar.setStatus('processing');
     chatView.setMicState('idle');
     chatView.setProcessingState(true);
-    await renderer?.showStatus('⏳ Transcribing...');
+    await safeHud(() => renderer?.showStatus('⏳ Transcribing...'));
 
     let userText = '';
     try {
@@ -438,17 +457,32 @@ async function main(): Promise<void> {
     let lastDisplayFlush = 0;
     const DISPLAY_THROTTLE_MS = 150;
 
+    let hudRenderFailed = false;
     async function flushGlasses(force = false): Promise<void> {
-      if (!renderer || activePrompt) return;
+      if (!renderer || activePrompt || hudRenderFailed) return;
       const now = Date.now();
       if (!force && now - lastDisplayFlush < DISPLAY_THROTTLE_MS) return;
       lastDisplayFlush = now;
-      await renderer.displayText(fullResponse);
+      try {
+        await renderer.displayText(fullResponse);
+      } catch (e) {
+        // A HUD render failure must never kill the conversation: the phone
+        // webview still shows the streamed answer. Seen live when the SDK
+        // resolves a bridge in a plain browser whose container calls then
+        // fail ("both textContainerUpgrade and rebuildPageContainer failed").
+        // Warn once and stop flushing for the rest of this turn.
+        hudRenderFailed = true;
+        console.warn('Glasses HUD render failed — continuing phone-only:', e);
+      }
     }
 
     try {
+      // Read settings at call time so a mid-session toggle takes effect on
+      // the very next message. `use_memory` asks the hub to recall from
+      // Companion Memory before replying and save the exchange back after.
       const stream = adapter.sendMessageEvents(userText, signal, {
         session_id: sessionId,
+        use_memory: settings.get().useMemory,
       });
 
       for await (const evt of stream) {
@@ -458,7 +492,7 @@ async function main(): Promise<void> {
           await flushGlasses();
         } else if (evt.type === 'agent_status') {
           const label = evt.label ?? evt.kind;
-          await renderer?.showStatus(`⏳ ${label}`);
+          await safeHud(() => renderer?.showStatus(`⏳ ${label}`));
           statusBar.setStatus(
             evt.kind === 'thinking' || evt.kind === 'awaiting_input'
               ? 'thinking'
@@ -483,12 +517,14 @@ async function main(): Promise<void> {
             content: `🔐 ${evt.tool}: ${evt.summary}`,
             timestamp: new Date(),
           });
-          await renderer?.displayPromptCard({
-            tool: evt.tool,
-            summary: evt.summary,
-            approveLabel: approveOpt?.label,
-            denyLabel: denyOpt?.label,
-          });
+          await safeHud(() =>
+            renderer?.displayPromptCard({
+              tool: evt.tool,
+              summary: evt.summary,
+              approveLabel: approveOpt?.label,
+              denyLabel: denyOpt?.label,
+            })
+          );
           statusBar.setStatus('thinking');
         } else if (evt.type === 'error') {
           throw new Error(evt.message);
@@ -511,7 +547,7 @@ async function main(): Promise<void> {
       const errMsg = e instanceof Error ? e.message : String(e);
       console.error('AI request failed:', e);
       chatView.updateLastAssistantMessage(`❌ Error: ${errMsg}`);
-      await renderer?.showStatus(`❌ ${errMsg.slice(0, 60)}`);
+      await safeHud(() => renderer?.showStatus(`❌ ${errMsg.slice(0, 60)}`));
     } finally {
       statusBar.setStatus(bridge ? 'connected' : 'disconnected');
       chatView.setProcessingState(false);
@@ -538,10 +574,10 @@ async function main(): Promise<void> {
       } else {
         // Hub rejected — surface the actual outcome and let the user retry.
         activePrompt = prompt;
-        await renderer?.showStatus('❌ approve failed — tap to retry');
+        await renderer?.showStatus('❌ failed — 2×tap: approve · tap: deny');
         chatView.addMessage({
           role: 'system',
-          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — tap to retry`,
+          content: `❌ Failed to deliver "${optionId}" for ${prompt.id} — retry (2×tap: approve · tap: deny)`,
           timestamp: new Date(),
         });
       }
@@ -549,7 +585,7 @@ async function main(): Promise<void> {
       console.error('approve failed:', e);
       activePrompt = prompt;
       const msg = e instanceof Error ? e.message : String(e);
-      await renderer?.showStatus('❌ approve failed — tap to retry');
+      await renderer?.showStatus('❌ failed — 2×tap: approve · tap: deny');
       chatView.addMessage({
         role: 'system',
         content: `❌ Approve threw: ${msg}`,

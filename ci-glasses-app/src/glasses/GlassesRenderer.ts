@@ -116,7 +116,7 @@ export class GlassesRenderer {
    *   <summary line 1>                ← word-wrapped summary
    *   <summary line 2>
    *
-   *   tap: <approve label>  2× : <deny>
+   *   2×tap: <approve label> · tap: <deny>
    *
    * The card replaces any in-flight streaming display. While this card is
    * up, the caller is expected to intercept ring gestures and route them
@@ -141,8 +141,10 @@ export class GlassesRenderer {
         CHARS_PER_LINE
       );
     }
+    // Deliberate gesture (double-tap) approves; a single tap — easy to brush
+    // by accident — only denies, which the agent can safely re-ask.
     const footer = truncate(
-      `tap: ${approveLabel}  2x: ${denyLabel}`,
+      `2×tap: ${approveLabel} · tap: ${denyLabel}`,
       CHARS_PER_LINE
     );
     const lines = [header, '', ...visible, footer].slice(0, LINES_PER_SCREEN);

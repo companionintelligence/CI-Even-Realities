@@ -4,7 +4,7 @@ import { AddressInfo } from 'node:net';
 import { generateKeyPair, SignJWT } from 'jose';
 import { makeRouter } from '../router.ts';
 import { PortalTokenVerifier } from '../auth.ts';
-import type { Adapter, ChatRequest, SessionContext } from '../adapters/Adapter.ts';
+import type { Adapter, BackendKind, ChatRequest, SessionContext } from '../adapters/Adapter.ts';
 import type { AgentEvent } from '../events.ts';
 import type { HubConfig } from '../config.ts';
 
@@ -234,6 +234,151 @@ describe('router', () => {
     await withServer(router, async (port) => {
       const body = await (await fetch(`http://localhost:${port}/healthz`)).json();
       expect(body.kinds).toEqual(expect.arrayContaining(['local-llm', 'hermes', 'memory']));
+    });
+  });
+
+  describe('auto intent routing', () => {
+    /** Adapter that records the requests it receives and echoes the last user message. */
+    class Capture implements Adapter {
+      requests: ChatRequest[] = [];
+      constructor(readonly kind: BackendKind) {}
+      async *run(req: ChatRequest): AsyncIterable<AgentEvent> {
+        this.requests.push(req);
+        yield {
+          type: 'text',
+          delta: `${this.kind}:${req.messages[req.messages.length - 1]?.content}`,
+        };
+      }
+    }
+
+    it('routes agent_kind=auto to the addressed target with the prefix stripped', async () => {
+      const local = new Capture('local-llm');
+      const hermes = new Capture('hermes');
+      const registry = new Map<BackendKind, Adapter>([
+        ['local-llm', local],
+        ['hermes', hermes],
+      ]);
+      const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'local-llm' });
+      await withServer(router, async (port) => {
+        const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'ask hermes what time is it' }],
+            metadata: { agent_kind: 'auto' },
+          }),
+        });
+        const text = await r.text();
+        // The routing decision is surfaced on the HUD before the stream…
+        expect(text).toContain('event: agent_status');
+        expect(text).toContain('"label":"→ hermes"');
+        // …and the addressed adapter received the stripped utterance.
+        expect(hermes.requests).toHaveLength(1);
+        expect(hermes.requests[0]!.messages.at(-1)?.content).toBe('what time is it');
+        expect(text).toContain('hermes:what time is it');
+        expect(local.requests).toHaveLength(0);
+      });
+    });
+
+    it('falls back to defaultKind (original text intact) when the target is unregistered', async () => {
+      const local = new Capture('local-llm');
+      const registry = new Map<BackendKind, Adapter>([['local-llm', local]]);
+      const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'local-llm' });
+      await withServer(router, async (port) => {
+        const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'ask codex fix the flaky test' }],
+            metadata: { agent_kind: 'auto' },
+          }),
+        });
+        const text = await r.text();
+        expect(text).toContain('"label":"→ local-llm"');
+        // Registry miss → no prefix stripping; the fallback sees the raw text.
+        expect(local.requests[0]!.messages.at(-1)?.content).toBe(
+          'ask codex fix the flaky test'
+        );
+      });
+    });
+
+    it('AGENT_KIND=auto as default: classifies requests that omit agent_kind', async () => {
+      const local = new Capture('local-llm');
+      const memory = new Capture('memory');
+      const registry = new Map<BackendKind, Adapter>([
+        ['local-llm', local],
+        ['memory', memory],
+      ]);
+      const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'auto' });
+      await withServer(router, async (port) => {
+        const call = (content: string) =>
+          fetch(`http://localhost:${port}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'm',
+              stream: true,
+              messages: [{ role: 'user', content }],
+              metadata: {},
+            }),
+          }).then((r) => r.text());
+        await call('what did I eat yesterday');
+        expect(memory.requests).toHaveLength(1);
+        // Memory queries are NOT stripped — the utterance is the recall query.
+        expect(memory.requests[0]!.messages.at(-1)?.content).toBe(
+          'what did I eat yesterday'
+        );
+        await call('tell me a joke');
+        expect(local.requests).toHaveLength(1);
+      });
+    });
+
+    it('defaultKind=auto with no local-llm registered falls back to the first registered kind', async () => {
+      const hermes = new Capture('hermes');
+      const registry = new Map<BackendKind, Adapter>([['hermes', hermes]]);
+      const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'auto' });
+      await withServer(router, async (port) => {
+        const text = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'hello there' }],
+            metadata: { agent_kind: 'auto' },
+          }),
+        }).then((r) => r.text());
+        expect(text).toContain('"label":"→ hermes"');
+        expect(hermes.requests).toHaveLength(1);
+      });
+    });
+
+    it('stream:false routes but skips the agent_status routing event', async () => {
+      const hermes = new Capture('hermes');
+      const registry = new Map<BackendKind, Adapter>([
+        ['local-llm', new Capture('local-llm')],
+        ['hermes', hermes],
+      ]);
+      const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'local-llm' });
+      await withServer(router, async (port) => {
+        const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: false,
+            messages: [{ role: 'user', content: 'hermes, ping' }],
+            metadata: { agent_kind: 'auto' },
+          }),
+        });
+        const body = await r.json();
+        expect(body.choices[0].message.content).toBe('hermes:ping');
+        expect(hermes.requests[0]!.messages.at(-1)?.content).toBe('ping');
+      });
     });
   });
 

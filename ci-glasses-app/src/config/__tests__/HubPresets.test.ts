@@ -19,6 +19,7 @@ const BASE: BackendConfig = {
   oidcClientId: 'ci-hub',
   oidcScope: 'openid email profile offline_access',
   hubBaseUrl: 'http://ci-hub.local',
+  useMemory: false,
 };
 
 describe('hubHost', () => {
@@ -33,14 +34,25 @@ describe('hubHost', () => {
 });
 
 describe('hubPresets', () => {
-  it('derives canonical Ollama / Hermes / OpenClaw endpoints', () => {
+  it('derives canonical Assistant / Ollama / Hermes / OpenClaw endpoints', () => {
     const presets = hubPresets('http://ci-hub.local');
     const byService = Object.fromEntries(presets.map((p) => [p.service, p]));
 
-    // Ollama — direct OpenAI /v1.
-    expect(byService.ollama.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.ollama}`);
+    // Assistant — the auto-routing default, listed first.
+    expect(presets[0].service).toBe('assistant');
+    expect(byService.assistant.label).toBe('Assistant');
+    expect(byService.assistant.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
+    expect(byService.assistant.patch.backendKind).toBe('auto');
+    expect(byService.assistant.patch.apiMode).toBe('completions');
+    expect(byService.assistant.patch.model).toBe('ci-companion');
+
+    // Ollama — one baseUrl for chat AND voice, so it too routes via agent-hub.
+    // The hub injects its own downstream Ollama key; the preset must not
+    // clobber the user's apiKey with 'ollama' anymore.
+    expect(byService.ollama.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
     expect(byService.ollama.patch.backendKind).toBe('local-llm');
-    expect(byService.ollama.patch.apiKey).toBe('ollama');
+    expect(byService.ollama.patch.model).toBe('llama3.2');
+    expect(byService.ollama.patch.apiKey).toBeUndefined();
 
     // Hermes — real agent, brokered by agent-hub.
     expect(byService.hermes.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
@@ -61,12 +73,23 @@ describe('hubPresets', () => {
 describe('applyHubPreset', () => {
   it('merges the preset over config, preserving unrelated fields', () => {
     const next = applyHubPreset(BASE, 'ollama', 'http://ci-hub.local');
-    expect(next.baseUrl).toBe('http://ci-hub.local:11434');
+    expect(next.baseUrl).toBe('http://ci-hub.local:8787');
     expect(next.backendKind).toBe('local-llm');
-    expect(next.apiKey).toBe('ollama');
-    // preserved
+    // preserved — agent-hub injects its own downstream Ollama key
+    expect(next.apiKey).toBe('old-key');
     expect(next.systemPrompt).toBe('stay');
     expect(next.oidcClientId).toBe('ci-hub');
+  });
+
+  it('applies the Assistant preset (auto-routing via agent-hub)', () => {
+    const next = applyHubPreset(BASE, 'assistant', 'http://ci-hub.local');
+    expect(next.baseUrl).toBe('http://ci-hub.local:8787');
+    expect(next.backendKind).toBe('auto');
+    expect(next.apiMode).toBe('completions');
+    expect(next.model).toBe('ci-companion');
+    // preserved
+    expect(next.apiKey).toBe('old-key');
+    expect(next.useMemory).toBe(false);
   });
 
   it('preserves the API key for the OpenClaw preset (routed via agent-hub)', () => {

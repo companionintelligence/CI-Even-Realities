@@ -14,7 +14,12 @@ export type BackendKind =
   | 'codex-cli'
   | 'openclaw'
   | 'hermes'
-  | 'memory';
+  | 'memory'
+  /**
+   * Virtual kind: the router resolves it per-request by classifying the last
+   * user message (see routing/intent.ts). Never registered as an adapter.
+   */
+  | 'auto';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
