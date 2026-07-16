@@ -7,6 +7,24 @@
 
 import type { Settings, BackendConfig } from '../config/Settings.ts';
 import type { ApiAdapter } from '../ai/ApiAdapter.ts';
+import { hubPresets, type HubService } from '../config/HubPresets.ts';
+
+/**
+ * Bridge to the OIDC session, implemented by Main.ts. Kept as a narrow
+ * interface so SettingsView stays testable and the auth machinery is optional
+ * (the Account section is hidden when no panel is supplied).
+ */
+export interface AuthPanel {
+  isSignedIn(): boolean;
+  getIdentity(): { name?: string; email?: string };
+  /** Begin the redirect login (navigates the WebView to CI-Portal). */
+  signIn(): Promise<void>;
+  signOut(): Promise<void>;
+  /** Manual fallback: finish sign-in from a pasted redirect URL or code. */
+  completeManual(input: string): Promise<void>;
+  /** Re-read OIDC settings (issuer/client/scope) into the live client. */
+  applyConfig(): void;
+}
 
 export class SettingsView {
   private el: HTMLElement;
@@ -14,7 +32,8 @@ export class SettingsView {
   constructor(
     private container: HTMLElement,
     private settings: Settings,
-    private adapter: ApiAdapter
+    private adapter: ApiAdapter,
+    private auth?: AuthPanel
   ) {
     this.el = document.createElement('div');
     this.el.className = 'settings-view';
@@ -30,9 +49,20 @@ export class SettingsView {
     this.el.style.display = 'none';
   }
 
+  /** Re-render the panel (e.g. after sign-in state changes). */
+  refresh(): void {
+    this.render();
+  }
+
   private render(): void {
     this.el.innerHTML = '';
     const cfg = this.settings.get();
+
+    // ── Account (CI-Portal OIDC) ─────────────────────────────────────────────
+    const accountSection = this.auth ? this.makeAccountSection() : null;
+
+    // ── CI-Hub quick-connect ─────────────────────────────────────────────────
+    const hubSection = this.makeHubSection();
 
     // ── Backend section ──────────────────────────────────────────────────────
     const backendSection = this.makeSection('AI Backend');
@@ -173,11 +203,197 @@ export class SettingsView {
     dangerRow.appendChild(resetBtn);
     dangerSection.appendChild(dangerRow);
 
+    if (accountSection) this.el.appendChild(accountSection);
+    this.el.appendChild(hubSection);
     this.el.appendChild(backendSection);
     this.el.appendChild(promptSection);
     this.el.appendChild(sttSection);
     this.el.appendChild(ttsSection);
     this.el.appendChild(dangerSection);
+  }
+
+  /**
+   * "Sign in with Companion Intelligence" — CI-Portal OIDC. Shows the signed-in
+   * identity + Sign out when authenticated, otherwise a sign-in button plus a
+   * manual code-paste fallback (for WebViews that can't round-trip the
+   * redirect). Advanced issuer/client/scope fields live in a collapsible block.
+   */
+  private makeAccountSection(): HTMLElement {
+    const auth = this.auth!;
+    const cfg = this.settings.get();
+    const section = this.makeSection('Account');
+
+    const signedIn = auth.isSignedIn();
+
+    const status = document.createElement('div');
+    status.className = `account-status account-status--${signedIn ? 'in' : 'out'}`;
+    if (signedIn) {
+      const id = auth.getIdentity();
+      status.textContent = `✓ Signed in${id.name ? ` as ${id.name}` : ''}${
+        id.email && id.email !== id.name ? ` (${id.email})` : ''
+      }`;
+    } else {
+      status.textContent = 'Not signed in — using the API key below.';
+    }
+    section.appendChild(status);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'settings-row';
+    if (signedIn) {
+      const outBtn = document.createElement('button');
+      outBtn.className = 'btn btn--secondary';
+      outBtn.textContent = 'Sign out';
+      outBtn.addEventListener('click', async () => {
+        outBtn.disabled = true;
+        await auth.signOut();
+        this.settings.set({ authMode: 'apiKey' });
+        this.adapter.updateConfig(this.settings.get());
+        this.render();
+      });
+      actionRow.appendChild(outBtn);
+    } else {
+      const inBtn = document.createElement('button');
+      inBtn.className = 'btn btn--primary';
+      inBtn.textContent = 'Sign in with Companion Intelligence';
+      inBtn.addEventListener('click', async () => {
+        inBtn.disabled = true;
+        this.settings.set({ authMode: 'oidc' });
+        auth.applyConfig();
+        try {
+          await auth.signIn();
+        } catch (e) {
+          inBtn.disabled = false;
+          status.className = 'account-status account-status--out';
+          status.textContent = `✗ ${e instanceof Error ? e.message : String(e)}`;
+        }
+      });
+      actionRow.appendChild(inBtn);
+    }
+    section.appendChild(actionRow);
+
+    if (!signedIn) {
+      // Manual fallback: paste the redirected URL (or code) back into the app.
+      const manualWrap = document.createElement('details');
+      manualWrap.className = 'settings-details';
+      const manualSummary = document.createElement('summary');
+      manualSummary.textContent = 'Paste redirect result (manual fallback)';
+      manualWrap.appendChild(manualSummary);
+
+      const manualRow = document.createElement('div');
+      manualRow.className = 'settings-row';
+      const manualInput = document.createElement('input');
+      manualInput.className = 'settings-input';
+      manualInput.placeholder = 'https://…/?code=…&state=…';
+      const manualBtn = document.createElement('button');
+      manualBtn.className = 'btn btn--secondary';
+      manualBtn.textContent = 'Complete sign-in';
+      manualBtn.addEventListener('click', async () => {
+        manualBtn.disabled = true;
+        try {
+          this.settings.set({ authMode: 'oidc' });
+          auth.applyConfig();
+          await auth.completeManual(manualInput.value.trim());
+          this.render();
+        } catch (e) {
+          manualBtn.disabled = false;
+          status.className = 'account-status account-status--out';
+          status.textContent = `✗ ${e instanceof Error ? e.message : String(e)}`;
+        }
+      });
+      manualRow.appendChild(manualInput);
+      manualRow.appendChild(manualBtn);
+      manualWrap.appendChild(manualRow);
+      section.appendChild(manualWrap);
+    }
+
+    // Advanced OIDC config.
+    const adv = document.createElement('details');
+    adv.className = 'settings-details';
+    const advSummary = document.createElement('summary');
+    advSummary.textContent = 'Advanced (issuer / client / scope)';
+    adv.appendChild(advSummary);
+    adv.appendChild(
+      this.makeTextRow('OIDC Issuer', 'oidcIssuer', cfg.oidcIssuer, {
+        hint: 'CI-Portal base URL, e.g. https://hub.ci.computer/api/auth',
+        onChange: () => auth.applyConfig(),
+      })
+    );
+    adv.appendChild(
+      this.makeTextRow('Client ID', 'oidcClientId', cfg.oidcClientId, {
+        hint: 'Public OIDC client (default: ci-hub)',
+        onChange: () => auth.applyConfig(),
+      })
+    );
+    adv.appendChild(
+      this.makeTextRow('Scope', 'oidcScope', cfg.oidcScope, {
+        hint: 'Space-separated; offline_access enables refresh tokens',
+        onChange: () => auth.applyConfig(),
+      })
+    );
+    section.appendChild(adv);
+
+    return section;
+  }
+
+  /**
+   * CI-Hub quick-connect. Enter the Hub base host once, then one tap fills in
+   * the standardized backend URL / kind / model for Ollama, Hermes, or
+   * OpenClaw (see config/HubPresets.ts).
+   */
+  private makeHubSection(): HTMLElement {
+    const cfg = this.settings.get();
+    const section = this.makeSection('CI-Hub');
+
+    section.appendChild(
+      this.makeTextRow('Hub Base URL', 'hubBaseUrl', cfg.hubBaseUrl, {
+        hint: 'Host of your CI-Hub, e.g. http://ci-hub.local or a Tailscale IP',
+        placeholder: 'http://ci-hub.local',
+      })
+    );
+
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    const label = document.createElement('div');
+    label.className = 'settings-row__label';
+    label.textContent = 'Quick connect';
+    row.appendChild(label);
+    const hint = document.createElement('div');
+    hint.className = 'settings-row__hint';
+    hint.textContent =
+      'Fills Backend URL / Kind / Model from the Hub host above. Edit the model after if needed.';
+    row.appendChild(hint);
+
+    const grid = document.createElement('div');
+    grid.className = 'kind-picker';
+    for (const preset of hubPresets(cfg.hubBaseUrl)) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'kind-card';
+      const name = document.createElement('div');
+      name.className = 'kind-card__name';
+      name.textContent = preset.label;
+      const h = document.createElement('div');
+      h.className = 'kind-card__hint';
+      h.textContent = preset.hint;
+      card.appendChild(name);
+      card.appendChild(h);
+      card.addEventListener('click', () => {
+        this.applyHubService(preset.service);
+      });
+      grid.appendChild(card);
+    }
+    row.appendChild(grid);
+    section.appendChild(row);
+    return section;
+  }
+
+  private applyHubService(service: HubService): void {
+    const cfg = this.settings.get();
+    const preset = hubPresets(cfg.hubBaseUrl).find((p) => p.service === service);
+    if (!preset) return;
+    this.settings.set(preset.patch);
+    this.adapter.updateConfig(this.settings.get());
+    this.render();
   }
 
   private makeSection(title: string): HTMLElement {
@@ -257,7 +473,12 @@ export class SettingsView {
     label: string,
     key: keyof BackendConfig,
     value: string,
-    opts: { hint?: string; placeholder?: string; type?: string } = {}
+    opts: {
+      hint?: string;
+      placeholder?: string;
+      type?: string;
+      onChange?: () => void;
+    } = {}
   ): HTMLElement {
     const row = document.createElement('div');
     row.className = 'settings-row';
@@ -284,6 +505,7 @@ export class SettingsView {
     input.addEventListener('change', () => {
       this.settings.set({ [key]: input.value } as Partial<BackendConfig>);
       this.adapter.updateConfig(this.settings.get());
+      opts.onChange?.();
     });
 
     row.appendChild(input);

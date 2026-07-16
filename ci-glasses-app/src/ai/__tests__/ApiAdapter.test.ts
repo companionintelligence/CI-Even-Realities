@@ -14,6 +14,11 @@ const BASE_CONFIG: BackendConfig = {
   sttProvider: 'whisper',
   ttsEnabled: false,
   maxHistoryMessages: 20,
+  authMode: 'apiKey',
+  oidcIssuer: 'https://hub.ci.computer/api/auth',
+  oidcClientId: 'ci-hub',
+  oidcScope: 'openid email profile offline_access',
+  hubBaseUrl: 'http://localhost',
 };
 
 /** Build a non-streaming completions Response. */

@@ -8,14 +8,22 @@
 import type { BackendConfig } from '../config/Settings.ts';
 import type { AgentEvent } from './AgentEvent.ts';
 import { parseSSEStream } from './StreamParser.ts';
+import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 export class ResponsesApi {
   private previousResponseId?: string;
 
-  constructor(private config: BackendConfig) {}
+  constructor(
+    private config: BackendConfig,
+    private tokenProvider?: TokenProvider
+  ) {}
 
   updateConfig(config: BackendConfig): void {
     this.config = config;
+  }
+
+  setTokenProvider(provider: TokenProvider | undefined): void {
+    this.tokenProvider = provider;
   }
 
   clearContext(): void {
@@ -37,15 +45,20 @@ export class ResponsesApi {
       }
     }
 
-    const response = await fetch(`${this.config.baseUrl}/v1/responses`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
+    const response = await authedFetch(
+      this.tokenProvider,
+      this.config.apiKey,
+      (bearer) =>
+        fetch(`${this.config.baseUrl}/v1/responses`, {
+          method: 'POST',
+          headers: {
+            ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal,
+        })
+    );
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');

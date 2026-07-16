@@ -41,15 +41,21 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 |---|---|---|
 | `HUB_PORT` | `8787` | Bind port |
 | `HUB_BIND` | `127.0.0.1` (no token) / `0.0.0.0` (token set) | Interface to bind on. Default is loopback when `HUB_TOKEN` is empty so a misconfigured hub doesn't end up exposed on the LAN. Set `HUB_BIND=0.0.0.0` once a token is configured. |
-| `HUB_TOKEN` | *(empty)* | Required bearer token; empty = no auth + loopback-only by default |
+| `HUB_TOKEN` | *(empty)* | Static bearer token; empty = no static auth + loopback-only by default |
 | `AGENT_KIND` | `openai` | One of `openai`, `local-llm`, `claude-cli`, `codex-cli`, `openclaw` |
-| `DOWNSTREAM_URL` | `http://localhost:11434` | Used by `openai` / `local-llm` |
-| `DOWNSTREAM_API_KEY` | *(empty)* | Used by `openai` / `local-llm` |
+| `DOWNSTREAM_URL` | `http://localhost:11434` | Used by `openai` / `local-llm`. Falls back to `CI_LLM_BASE_URL` (trailing `/v1` stripped). |
+| `DOWNSTREAM_API_KEY` | *(empty)* | Used by `openai` / `local-llm`. Falls back to `CI_LLM_API_KEY`. |
+| `CI_LLM_BASE_URL` | *(unset)* | Canonical CI-Hub inference URL (`${ollama}/v1`); aliased into `DOWNSTREAM_URL`. |
+| `CI_LLM_API_KEY` | *(unset)* | Canonical CI-Hub inference key (`ollama`); aliased into `DOWNSTREAM_API_KEY`. |
 | `CLAUDE_BIN` | `claude` | Binary spawned by `claude-cli` adapter |
 | `CODEX_BIN` | `codex` | Binary spawned by `codex-cli` adapter |
 | `OPENCLAW_GATEWAY_URL` | *(empty)* | Endpoint for `openclaw` adapter |
 | `OPENCLAW_TOKEN` | *(empty)* | Bearer for the Gateway |
 | `AGENT_CWD` | `process.cwd()` | Working directory for coding-agent subprocesses |
+| `PORTAL_OIDC_ENABLED` | `false` | When `true`, accept CI-Portal-issued JWTs (verified via JWKS) in addition to `HUB_TOKEN`. |
+| `PORTAL_OIDC_ISSUER` | `https://hub.ci.computer` (or `CI_CLOUD_URL`) | Expected `iss` claim. |
+| `PORTAL_OIDC_JWKS_URI` | `${issuer}/api/auth/jwks` | JWKS endpoint used to verify EdDSA signatures. |
+| `PORTAL_OIDC_AUDIENCE` | `ci-hub,ci-even,ci-server` | Comma-separated allowed `aud` (CI-Portal sets `aud === client_id`). |
 
 ---
 
@@ -87,6 +93,10 @@ The hub never invents an option id — it forwards exactly what the prompt decla
 - Hub binds on `0.0.0.0` by default but you should **set `HUB_TOKEN`** in any non-localhost deployment.
 - Pair with Tailscale (or equivalent) for off-LAN access. Never expose to the public internet without TLS.
 - The `claude-cli` / `codex-cli` adapters run the agents with the hub process's permissions. Run the hub as an unprivileged user.
+
+### CI-Portal OIDC (optional)
+
+Set `PORTAL_OIDC_ENABLED=true` to make the hub a CI-Portal **OIDC resource server**: requests may authenticate with a Portal-issued JWT (verified against the Portal JWKS — `iss` + `aud`, EdDSA) instead of the static `HUB_TOKEN`. This matches the platform trust model (Hub-side services validate Portal tokens against the Portal JWKS) and is a direct port of CI-Server's `PortalTokenService`. The glasses app obtains that token via "Sign in with Companion Intelligence". When enabled, the hub requires a valid credential — either a matching `HUB_TOKEN` **or** a valid Portal JWT.
 
 ---
 

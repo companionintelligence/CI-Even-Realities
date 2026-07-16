@@ -499,6 +499,9 @@ textarea:focus-visible {
 
 .settings-view {
   flex: 1;
+  /* min-height:0 lets this flex child shrink below its content size so its own
+     overflow-y (not the parent) provides the scroll. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--pad-page);
   display: flex;
@@ -510,6 +513,9 @@ textarea:focus-visible {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  /* Keep natural height so the view scrolls instead of squashing sections
+     together when the content is taller than the viewport. */
+  flex-shrink: 0;
 }
 .settings-section__title {
   padding: 11px 14px;
@@ -662,6 +668,38 @@ textarea:focus-visible {
   color: var(--color-error);
   border: 1px solid var(--color-error);
 }
+
+/* Account / OIDC sign-in status */
+.account-status {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border-hi);
+}
+.account-status--in {
+  background: rgba(171, 212, 216, 0.08);
+  color: var(--color-success);
+  border-color: var(--color-accent-dim);
+}
+.account-status--out {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+/* Collapsible advanced blocks (manual fallback, OIDC config) */
+.settings-details {
+  margin-top: 8px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+.settings-details > summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+}
+.settings-details[open] > summary { color: var(--color-text); }
 
 /* Glasses preview */
 .glasses-preview-wrapper { padding: 0 var(--pad-page) 8px; }

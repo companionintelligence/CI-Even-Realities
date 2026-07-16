@@ -9,6 +9,14 @@ export type ApiMode = 'completions' | 'responses' | 'auto';
 export type STTProvider = 'whisper' | 'webspeech';
 
 /**
+ * How the app authenticates to its backend.
+ * - `apiKey` — legacy: send a static bearer the user pastes into Settings.
+ * - `oidc`   — "Sign in with Companion Intelligence": obtain a CI-Portal OIDC
+ *              access token (Authorization-Code + PKCE) and send that instead.
+ */
+export type AuthMode = 'apiKey' | 'oidc';
+
+/**
  * Which kind of agent sits behind the configured backend URL.
  *
  * The glasses app speaks one wire format (OpenAI SSE) regardless. The kind
@@ -56,6 +64,27 @@ export interface BackendConfig {
    * Default: 20 (10 conversation turns).
    */
   maxHistoryMessages: number;
+
+  // ── Authentication ──────────────────────────────────────────────────────
+  /** How the app authenticates to its backend (see {@link AuthMode}). */
+  authMode: AuthMode;
+  /**
+   * CI-Portal OIDC provider base URL (Better-Auth mount). Discovery + endpoint
+   * fallbacks derive from this. Default is the production Portal issuer.
+   */
+  oidcIssuer: string;
+  /** OIDC public client id. Defaults to the pre-registered `ci-hub` client. */
+  oidcClientId: string;
+  /** OIDC scopes; `offline_access` is required for refresh tokens. */
+  oidcScope: string;
+
+  // ── CI-Hub quick-connect ────────────────────────────────────────────────
+  /**
+   * Base host of the user's CI-Hub (e.g. `http://ci-hub.local` or a Tailscale
+   * `http://100.x.y.z`). Standardized service presets (Ollama / Hermes /
+   * OpenClaw) are derived from this — see config/HubPresets.ts.
+   */
+  hubBaseUrl: string;
 }
 
 const STORAGE_KEY = 'ci-glasses-config';
@@ -76,6 +105,19 @@ const DEFAULT_CONFIG: BackendConfig = {
   sttProvider: 'whisper',
   ttsEnabled: false,
   maxHistoryMessages: 20,
+
+  // Default to the legacy static-key mode so existing installs keep working;
+  // users opt into OIDC from the Account section in Settings.
+  authMode: 'apiKey',
+  // Production CI-Portal issuer (Better-Auth mount). Configurable in Settings
+  // for staging/dev/self-hosted Portals. See CI-Server PortalTokenService.
+  oidcIssuer: 'https://hub.ci.computer/api/auth',
+  oidcClientId: 'ci-hub',
+  oidcScope: 'openid email profile offline_access',
+
+  // Canonical CI-Hub base. Ollama's OpenAI-compatible surface lives at
+  // `${hubBaseUrl}:11434/v1` (see config/HubPresets.ts).
+  hubBaseUrl: 'http://localhost',
 };
 
 export class Settings {
