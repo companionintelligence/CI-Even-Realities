@@ -19,6 +19,7 @@ const BASE_CONFIG: BackendConfig = {
   oidcClientId: 'ci-hub',
   oidcScope: 'openid email profile offline_access',
   hubBaseUrl: 'http://localhost',
+  useMemory: false,
 };
 
 /** Build a non-streaming completions Response. */
@@ -202,7 +203,7 @@ describe('ApiAdapter', () => {
   });
 
   describe('ecosystem kinds are hub-routed (force chat completions)', () => {
-    it.each(['hermes', 'memory', 'openclaw'] as const)(
+    it.each(['hermes', 'memory', 'openclaw', 'auto'] as const)(
       'never probes /v1/responses for %s',
       async (backendKind) => {
         fetchMock.mockResolvedValue(makeCompletionsResponse(`${backendKind} ok`));

@@ -23,6 +23,7 @@ const HUB_ROUTED_KINDS = new Set<BackendConfig['backendKind']>([
   'local-llm',
   'hermes',
   'memory',
+  'auto',
 ]);
 
 export class ApiAdapter {

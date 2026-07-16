@@ -1,6 +1,6 @@
 # agent-hub
 
-> Local HTTP service that exposes an OpenAI-compatible SSE surface in front of multiple agents — Claude Code, Codex CLI, OpenClaw, Ollama / vLLM / Hermes. The Even Realities G2 glasses app speaks **one** wire format; the hub is the swap point.
+> Local HTTP service that exposes an OpenAI-compatible SSE surface in front of multiple agents — Claude Code, Codex CLI, OpenClaw, Ollama / vLLM / Hermes. The Even Realities G2 glasses app speaks **one** wire format; the hub is the swap point. The hub also proxies speech-to-text (`/v1/audio/transcriptions` → any Whisper-compatible server), so the glasses need exactly one URL for chat **and** voice.
 
 See [`../architecture.md`](../architecture.md) for the full design.
 
@@ -12,6 +12,7 @@ See [`../architecture.md`](../architecture.md) for the full design.
 |---|---|---|
 | `GET`  | `/healthz` | Liveness + reports current adapter `kind` |
 | `POST` | `/v1/chat/completions` | OpenAI-shaped request. Returns SSE when `stream: true`; returns a single JSON `chat.completion` object when `stream: false` |
+| `POST` | `/v1/audio/transcriptions` | Whisper-compatible STT proxy: forwards multipart audio verbatim to `STT_URL`, injecting `STT_API_KEY` server-side. `501` when `STT_URL` is unset |
 | `POST` | `/v1/sessions/:id/approve` | Resolve a `permission_prompt` emitted by a coding-agent adapter |
 
 ### Extended SSE events
@@ -61,6 +62,36 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `CI_SERVER_URL` | *(unset)* | CI-Server ("Companion Memory") base URL (e.g. `http://<hub>:3030`). Registers the `memory` target. |
 | `CI_SERVER_API_KEY` | *(unset)* | Memory-scoped CI-Server API key (sent as `x-api-key`). |
 | `CI_SERVER_MEMORY_PATH` | `/memory/recall` | Recall path; `/api/memory/recall` when fronting via the Hub/Traefik proxy. |
+| `CI_SERVER_TURN_PATH` | `/memory/turn` | Turn write-back path used by memory augmentation (`metadata.use_memory`). |
+| `STT_URL` | *(empty)* | Base URL of any Whisper-compatible transcription server — faster-whisper-server, speaches, LocalAI, or OpenAI. Enables `POST /v1/audio/transcriptions`; unset → `501`. |
+| `STT_API_KEY` | *(empty)* | Bearer token for the STT upstream, injected server-side (never shipped to the glasses). |
+
+---
+
+## Run as a CI-Hub app / Docker
+
+The hub ships as a CI-Hub marketplace app — **Companion Glasses Bridge** (`ci-glasses-bridge` in CI-Marketplace) — so a Hub owner installs it with one click instead of exporting the table above by hand. The manifest declares `hub_integration.inference` and `hub_integration.memory`, and CI-Hub injects the canonical env at install time:
+
+| Injected by CI-Hub | Read by the hub as | Enables |
+|---|---|---|
+| `CI_LLM_BASE_URL` | `DOWNSTREAM_URL` alias (trailing `/v1` stripped) | `openai` / `local-llm` chat against the Hub's Ollama |
+| `CI_LLM_API_KEY` | `DOWNSTREAM_API_KEY` alias | — |
+| `CI_SERVER_URL` | `memory` target base URL | Companion Memory recall |
+| `CI_SERVER_TOKEN` | `CI_SERVER_API_KEY` alias | — |
+
+That means **zero manual env for Ollama chat + memory recall**. The app defaults `PORTAL_OIDC_ENABLED=true`, so the glasses authenticate with "Sign in with Companion Intelligence" — no token copying at install either. Optional extras remain opt-in via the app's install form (or plain env when running the image by hand): `HERMES_GATEWAY_URL` / `HERMES_APP_SEED` for the `hermes` target, `OPENCLAW_GATEWAY_URL` / `OPENCLAW_TOKEN` for `openclaw`, and `HUB_TOKEN` for static-bearer clients. Speech-to-text is configured in the glasses app itself (it talks to its Whisper endpoint directly), so no STT env exists on the hub.
+
+The same image runs standalone:
+
+```bash
+docker build -t ghcr.io/companionintelligence/ci-glasses-bridge:0.1.0 agent-hub/
+docker run -p 8787:8787 \
+  -e CI_LLM_BASE_URL=http://host.docker.internal:11434/v1 \
+  -e HUB_TOKEN=change-me \
+  ghcr.io/companionintelligence/ci-glasses-bridge:0.1.0
+```
+
+The image compiles `src/` → `dist/` in a build stage and runs `node dist/server.js` on `node:22-alpine` with production deps only (no `tsx`). It sets `HUB_PORT=8787` and `HUB_BIND=0.0.0.0` (containers must bind beyond loopback; auth still gates every request) and carries a `/healthz` Docker `HEALTHCHECK`.
 
 ---
 
@@ -75,6 +106,22 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `memory` | ✅ | ❌ | Recalls from CI-Server ("Companion Memory") and streams the block back; api-key held server-side. |
 | `claude-cli` | ✅ | ✅ | Spawns `claude -p --input-format stream-json --output-format stream-json --session-id <id>`. |
 | `codex-cli` | ✅ | ✅ | Spawns `codex --json --session <id>`. |
+
+### Memory augmentation (`metadata.use_memory`)
+
+Memory is also a *layer*, not just a target. Any chat request carrying
+
+```json
+"metadata": { "use_memory": true }
+```
+
+is augmented when `CI_SERVER_URL` is configured (and the selected target isn't `memory` itself — recall-around-recall is meaningless):
+
+1. **Recall** — the last user message is POSTed to `${CI_SERVER_URL}${CI_SERVER_MEMORY_PATH}` (`x-api-key` auth); a non-empty memory block is prepended to the conversation as a system message (`Relevant memories about the user (from Companion Memory): …`).
+2. **Chat** — the selected adapter runs unchanged; every event streams through as-is.
+3. **Write-back** — once the stream completes with text (and no error event), the turn `{session_id, user, assistant, source: "ci-glasses"}` is POSTed fire-and-forget to `${CI_SERVER_URL}${CI_SERVER_TURN_PATH}`.
+
+Recall and write-back are strictly best-effort: a CI-Server failure logs a warning and never blocks or fails the chat.
 
 ### How `approve` works (`claude-cli` / `codex-cli`)
 
