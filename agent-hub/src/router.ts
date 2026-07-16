@@ -3,9 +3,10 @@
  *
  * Dispatches HTTP requests to the right handler. Implements two endpoints:
  *
- *   POST /v1/chat/completions     — OpenAI-shaped, returns SSE
- *   POST /v1/sessions/:id/approve — Approve/deny an outstanding prompt
- *   GET  /healthz                 — Liveness
+ *   POST /v1/chat/completions       — OpenAI-shaped, returns SSE
+ *   POST /v1/audio/transcriptions   — Whisper-compatible STT proxy (stt.ts)
+ *   POST /v1/sessions/:id/approve   — Approve/deny an outstanding prompt
+ *   GET  /healthz                   — Liveness
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -15,6 +16,7 @@ import { writeAgentEvent, writeDone, writeSSEHead } from './sse.ts';
 import { bindSession, getSession } from './sessions.ts';
 import type { HubConfig } from './config.ts';
 import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
+import { handleTranscription } from './stt.ts';
 
 export interface RouterDeps {
   config: HubConfig;
@@ -107,6 +109,10 @@ export function makeRouter(deps: RouterDeps) {
 
     if (method === 'POST' && url === '/v1/chat/completions') {
       return handleChatCompletions(req, res, registry, defaultKind);
+    }
+
+    if (method === 'POST' && url === '/v1/audio/transcriptions') {
+      return handleTranscription(req, res, deps.config);
     }
 
     const approveMatch = url.match(/^\/v1\/sessions\/([^/]+)\/approve$/);

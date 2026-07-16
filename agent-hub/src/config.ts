@@ -60,6 +60,17 @@ export interface HubConfig {
   ciServerApiKey: string;
   /** Recall path; `/memory/recall` direct, `/api/memory/recall` via Hub proxy. */
   ciServerMemoryPath: string;
+
+  // ── Speech-to-text proxy ──────────────────────────────────────────────────
+  /**
+   * Base URL of any Whisper-compatible transcription server — faster-whisper-
+   * server, speaches, LocalAI, or OpenAI itself. When set, the hub proxies
+   * `POST /v1/audio/transcriptions` to `${sttUrl}/v1/audio/transcriptions` so
+   * the glasses need exactly one base URL for chat AND voice. Empty = 501.
+   */
+  sttUrl: string;
+  /** Upstream STT bearer token, injected server-side (never on the glasses). */
+  sttApiKey: string;
 }
 
 const KINDS = new Set<BackendKind>([
@@ -124,5 +135,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     ciServerUrl: env['CI_SERVER_URL'] ?? '',
     ciServerApiKey: env['CI_SERVER_API_KEY'] ?? env['CI_SERVER_TOKEN'] ?? '',
     ciServerMemoryPath: env['CI_SERVER_MEMORY_PATH'] ?? '/memory/recall',
+    sttUrl: env['STT_URL'] ?? '',
+    sttApiKey: env['STT_API_KEY'] ?? '',
   };
 }
