@@ -61,6 +61,7 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `CI_SERVER_URL` | *(unset)* | CI-Server ("Companion Memory") base URL (e.g. `http://<hub>:3030`). Registers the `memory` target. |
 | `CI_SERVER_API_KEY` | *(unset)* | Memory-scoped CI-Server API key (sent as `x-api-key`). |
 | `CI_SERVER_MEMORY_PATH` | `/memory/recall` | Recall path; `/api/memory/recall` when fronting via the Hub/Traefik proxy. |
+| `CI_SERVER_TURN_PATH` | `/memory/turn` | Turn write-back path used by memory augmentation (`metadata.use_memory`). |
 
 ---
 
@@ -75,6 +76,22 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `memory` | ✅ | ❌ | Recalls from CI-Server ("Companion Memory") and streams the block back; api-key held server-side. |
 | `claude-cli` | ✅ | ✅ | Spawns `claude -p --input-format stream-json --output-format stream-json --session-id <id>`. |
 | `codex-cli` | ✅ | ✅ | Spawns `codex --json --session <id>`. |
+
+### Memory augmentation (`metadata.use_memory`)
+
+Memory is also a *layer*, not just a target. Any chat request carrying
+
+```json
+"metadata": { "use_memory": true }
+```
+
+is augmented when `CI_SERVER_URL` is configured (and the selected target isn't `memory` itself — recall-around-recall is meaningless):
+
+1. **Recall** — the last user message is POSTed to `${CI_SERVER_URL}${CI_SERVER_MEMORY_PATH}` (`x-api-key` auth); a non-empty memory block is prepended to the conversation as a system message (`Relevant memories about the user (from Companion Memory): …`).
+2. **Chat** — the selected adapter runs unchanged; every event streams through as-is.
+3. **Write-back** — once the stream completes with text (and no error event), the turn `{session_id, user, assistant, source: "ci-glasses"}` is POSTed fire-and-forget to `${CI_SERVER_URL}${CI_SERVER_TURN_PATH}`.
+
+Recall and write-back are strictly best-effort: a CI-Server failure logs a warning and never blocks or fails the chat.
 
 ### How `approve` works (`claude-cli` / `codex-cli`)
 
