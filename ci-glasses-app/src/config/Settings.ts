@@ -116,7 +116,10 @@ const DEFAULT_CONFIG: BackendConfig = {
   // Production CI-Portal issuer (Better-Auth mount). Configurable in Settings
   // for staging/dev/self-hosted Portals. See CI-Server PortalTokenService.
   oidcIssuer: 'https://hub.ci.computer/api/auth',
-  oidcClientId: 'ci-hub',
+  // Dedicated public PKCE client for the glasses (registered in CI-Portal
+  // PUBLIC_CLIENTS; accepted by CI-Server's PORTAL_OIDC_AUDIENCE). Tokens carry
+  // aud: ci-even.
+  oidcClientId: 'ci-even',
   oidcScope: 'openid email profile offline_access',
 
   // Canonical CI-Hub base. Ollama's OpenAI-compatible surface lives at

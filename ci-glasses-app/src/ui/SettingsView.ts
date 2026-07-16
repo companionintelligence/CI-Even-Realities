@@ -320,7 +320,7 @@ export class SettingsView {
     );
     adv.appendChild(
       this.makeTextRow('Client ID', 'oidcClientId', cfg.oidcClientId, {
-        hint: 'Public OIDC client (default: ci-hub)',
+        hint: 'Public OIDC client (default: ci-even)',
         onChange: () => auth.applyConfig(),
       })
     );
