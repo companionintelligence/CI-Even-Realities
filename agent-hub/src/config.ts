@@ -22,7 +22,7 @@ export interface HubConfig {
   bind: string;
   /** Bearer token required on requests. Skipped when empty. */
   authToken: string;
-  /** Which adapter to load. */
+  /** Default target when a request omits `agent_kind` ('auto' = classify). */
   agentKind: BackendKind;
   /** Downstream URL for `openai` / `local-llm` adapters. */
   downstreamUrl: string;
@@ -70,6 +70,8 @@ const KINDS = new Set<BackendKind>([
   'hermes',
   'memory',
   'openclaw',
+  // Virtual default: the router classifies each utterance (routing/intent.ts).
+  'auto',
 ]);
 
 function parseKind(raw: string | undefined): BackendKind {

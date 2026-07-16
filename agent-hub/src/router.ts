@@ -15,6 +15,7 @@ import { writeAgentEvent, writeDone, writeSSEHead } from './sse.ts';
 import { bindSession, getSession } from './sessions.ts';
 import type { HubConfig } from './config.ts';
 import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
+import { classifyIntent } from './routing/intent.ts';
 
 export interface RouterDeps {
   config: HubConfig;
@@ -46,15 +47,86 @@ function resolveRegistry(deps: RouterDeps): {
   return { registry: new Map([[a.kind, a]]), defaultKind: a.kind };
 }
 
-/** Pick the adapter for a request: metadata.agent_kind, else the default. */
+interface AdapterSelection {
+  adapter: Adapter;
+  /** Possibly a copy of the request ('auto' routing may strip an address prefix). */
+  body: ChatRequest;
+  /** Set when the virtual 'auto' kind resolved this request; drives the HUD status event. */
+  autoRoutedKind?: BackendKind;
+}
+
+/**
+ * Fallback chain when 'auto' classification lands on an unregistered target:
+ * defaultKind when it is a real registered kind, else 'local-llm', else the
+ * first registered kind (the registry is never empty, see resolveRegistry).
+ */
+function autoFallback(
+  registry: Map<BackendKind, Adapter>,
+  defaultKind: BackendKind
+): BackendKind {
+  if (defaultKind !== 'auto' && registry.has(defaultKind)) return defaultKind;
+  if (registry.has('local-llm')) return 'local-llm';
+  return registry.keys().next().value as BackendKind;
+}
+
+/**
+ * Pick the adapter for a request: metadata.agent_kind, else the default.
+ * The virtual 'auto' kind (requested or as default) is resolved here by
+ * classifying the last user message (routing/intent.ts). When the classifier
+ * strips an explicit address prefix ("ask hermes …"), the returned body is a
+ * COPY with that message's content replaced — the parsed request is never
+ * mutated in place.
+ */
 function selectAdapter(
   body: ChatRequest,
   registry: Map<BackendKind, Adapter>,
   defaultKind: BackendKind
-): Adapter {
+): AdapterSelection {
   const raw = body.metadata?.['agent_kind'];
-  const kind = typeof raw === 'string' ? (raw as BackendKind) : undefined;
-  return (kind && registry.get(kind)) || registry.get(defaultKind)!;
+  const requested = typeof raw === 'string' ? (raw as BackendKind) : undefined;
+  const kind =
+    requested && (requested === 'auto' || registry.has(requested))
+      ? requested
+      : defaultKind;
+
+  if (kind !== 'auto') {
+    const adapter =
+      registry.get(kind) ?? (registry.values().next().value as Adapter);
+    return { adapter, body };
+  }
+
+  // 'auto' — classify the last user message to pick a registered target.
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]!.role === 'user') {
+      lastUserIdx = i;
+      break;
+    }
+  }
+  const utterance = lastUserIdx >= 0 ? messages[lastUserIdx]!.content : '';
+  const intent = classifyIntent(utterance);
+
+  let resolved: BackendKind;
+  let routedBody = body;
+  if (registry.has(intent.kind)) {
+    resolved = intent.kind;
+    if (intent.cleanedText !== undefined && lastUserIdx >= 0) {
+      routedBody = {
+        ...body,
+        messages: messages.map((m, i) =>
+          i === lastUserIdx ? { ...m, content: intent.cleanedText! } : m
+        ),
+      };
+    }
+  } else {
+    resolved = autoFallback(registry, defaultKind);
+  }
+  return {
+    adapter: registry.get(resolved)!,
+    body: routedBody,
+    autoRoutedKind: resolved,
+  };
 }
 
 export function makeRouter(deps: RouterDeps) {
@@ -167,7 +239,9 @@ async function handleChatCompletions(
     return;
   }
 
-  const adapter = selectAdapter(body, registry, defaultKind);
+  const selection = selectAdapter(body, registry, defaultKind);
+  const adapter = selection.adapter;
+  body = selection.body;
 
   const metaSessionId =
     typeof body.metadata?.['session_id'] === 'string'
@@ -223,6 +297,16 @@ async function handleChatCompletions(
   }
 
   writeSSEHead(res);
+
+  // Surface the 'auto' routing decision on the HUD before the adapter stream.
+  // (No representation in the non-streaming schema, so stream:false skips it.)
+  if (selection.autoRoutedKind) {
+    writeAgentEvent(
+      res,
+      { type: 'agent_status', kind: 'thinking', label: `→ ${selection.autoRoutedKind}` },
+      body.model
+    );
+  }
 
   try {
     for await (const evt of adapter.run(body, {
