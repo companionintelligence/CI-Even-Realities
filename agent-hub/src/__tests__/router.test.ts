@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { AddressInfo } from 'node:net';
+import { generateKeyPair, SignJWT } from 'jose';
 import { makeRouter } from '../router.ts';
+import { PortalTokenVerifier } from '../auth.ts';
 import type { Adapter, ChatRequest, SessionContext } from '../adapters/Adapter.ts';
 import type { AgentEvent } from '../events.ts';
 import type { HubConfig } from '../config.ts';
 
 const BASE_CFG: HubConfig = {
   port: 0,
+  bind: '127.0.0.1',
   authToken: '',
   agentKind: 'openai',
   downstreamUrl: '',
@@ -17,6 +20,10 @@ const BASE_CFG: HubConfig = {
   openclawGatewayUrl: '',
   openclawToken: '',
   agentCwd: process.cwd(),
+  portalOidcEnabled: false,
+  portalIssuer: 'https://hub.ci.computer',
+  portalJwksUri: 'https://hub.ci.computer/api/auth/jwks',
+  portalAudience: 'ci-hub,ci-even,ci-server',
 };
 
 class FakeAdapter implements Adapter {
@@ -185,6 +192,54 @@ describe('router', () => {
         choices: Array<{ message: { content: string } }>;
       };
       expect(body.choices[0]?.message.content).toBe('hello world');
+    });
+  });
+
+  it('accepts a valid CI-Portal JWT when OIDC verification is enabled', async () => {
+    const { privateKey, publicKey } = await generateKeyPair('EdDSA');
+    const verifier = new PortalTokenVerifier(
+      {
+        enabled: true,
+        issuer: 'https://hub.ci.computer',
+        jwksUri: 'https://unused/jwks',
+        audience: 'ci-hub',
+      },
+      publicKey
+    );
+    const token = await new SignJWT({ email: 'ada@ci.co' })
+      .setProtectedHeader({ alg: 'EdDSA' })
+      .setIssuer('https://hub.ci.computer')
+      .setAudience('ci-hub')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey);
+
+    const adapter = new FakeAdapter();
+    const router = makeRouter({ config: BASE_CFG, adapter, verifier });
+    await withServer(router, async (port) => {
+      // No credential → rejected.
+      const denied = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'm', stream: false, messages: [] }),
+      });
+      expect(denied.status).toBe(401);
+
+      // Valid Portal JWT → accepted.
+      const ok = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          model: 'm',
+          stream: false,
+          messages: [{ role: 'user', content: 'hi' }],
+          metadata: { session_id: 'jwt-sess' },
+        }),
+      });
+      expect(ok.status).toBe(200);
     });
   });
 

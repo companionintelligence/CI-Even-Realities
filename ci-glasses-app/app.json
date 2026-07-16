@@ -2,7 +2,7 @@
   "package_id": "com.companionintelligence.ciglasses",
   "edition": "202601",
   "name": "CI Companion",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "icon": "icon.png",
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.7",
@@ -14,7 +14,7 @@
     },
     {
       "name": "network",
-      "desc": "Send transcribed prompts to your configured AI backend (agent-hub on LAN, OpenAI, Ollama, OpenClaw, or any OpenAI-compatible URL) and stream the response.",
+      "desc": "Sign in with Companion Intelligence (CI-Portal OIDC) and send transcribed prompts to your configured AI backend (CI-Hub Ollama/Hermes/OpenClaw, agent-hub on LAN, OpenAI, or any OpenAI-compatible URL) and stream the response.",
       "whitelist": ["*"]
     }
   ],

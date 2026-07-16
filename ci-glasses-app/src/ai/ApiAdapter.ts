@@ -9,6 +9,7 @@ import type { BackendConfig } from '../config/Settings.ts';
 import type { AgentEvent } from './AgentEvent.ts';
 import { ChatCompletions } from './ChatCompletions.ts';
 import { ResponsesApi } from './ResponsesApi.ts';
+import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 /**
  * Backend kinds that must route through the agent-hub (which speaks Chat
@@ -29,9 +30,12 @@ export class ApiAdapter {
   /** In-flight probe promise, cached so concurrent callers share one request. */
   private responsesApiProbe?: Promise<boolean>;
 
-  constructor(private config: BackendConfig) {
-    this.chatCompletions = new ChatCompletions(config);
-    this.responsesApi = new ResponsesApi(config);
+  constructor(
+    private config: BackendConfig,
+    private tokenProvider?: TokenProvider
+  ) {
+    this.chatCompletions = new ChatCompletions(config, tokenProvider);
+    this.responsesApi = new ResponsesApi(config, tokenProvider);
   }
 
   updateConfig(config: BackendConfig): void {
@@ -41,6 +45,13 @@ export class ApiAdapter {
     // Reset cached capability when URL or mode changes
     this.responsesApiSupported = undefined;
     this.responsesApiProbe = undefined;
+  }
+
+  /** Swap the auth strategy (e.g. after sign-in / sign-out). */
+  setTokenProvider(provider: TokenProvider | undefined): void {
+    this.tokenProvider = provider;
+    this.chatCompletions.setTokenProvider(provider);
+    this.responsesApi.setTokenProvider(provider);
   }
 
   clearHistory(): void {
@@ -101,17 +112,22 @@ export class ApiAdapter {
     signal?: AbortSignal
   ): Promise<boolean> {
     if (!HUB_ROUTED_KINDS.has(this.config.backendKind)) return false;
-    const res = await fetch(
-      `${this.config.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/approve`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.config.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt_id: promptId, option_id: optionId }),
-        signal,
-      }
+    const res = await authedFetch(
+      this.tokenProvider,
+      this.config.apiKey,
+      (bearer) =>
+        fetch(
+          `${this.config.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/approve`,
+          {
+            method: 'POST',
+            headers: {
+              ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt_id: promptId, option_id: optionId }),
+            signal,
+          }
+        )
     );
     return res.ok;
   }

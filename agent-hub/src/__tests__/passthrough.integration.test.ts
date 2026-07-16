@@ -15,6 +15,7 @@ import type { HubConfig } from '../config.ts';
 
 const BASE_CFG: HubConfig = {
   port: 0,
+  bind: '127.0.0.1',
   authToken: '',
   agentKind: 'local-llm',
   downstreamUrl: '',
@@ -24,6 +25,10 @@ const BASE_CFG: HubConfig = {
   openclawGatewayUrl: '',
   openclawToken: '',
   agentCwd: process.cwd(),
+  portalOidcEnabled: false,
+  portalIssuer: 'https://hub.ci.computer',
+  portalJwksUri: 'https://hub.ci.computer/api/auth/jwks',
+  portalAudience: 'ci-hub,ci-even,ci-server',
 };
 
 /** Spin up a fake downstream that streams the supplied chunks as SSE. */

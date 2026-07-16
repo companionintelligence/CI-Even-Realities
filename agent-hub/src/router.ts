@@ -14,13 +14,17 @@ import type { Adapter, ChatRequest } from './adapters/Adapter.ts';
 import { writeAgentEvent, writeDone, writeSSEHead } from './sse.ts';
 import { bindSession, getSession } from './sessions.ts';
 import type { HubConfig } from './config.ts';
+import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
 
 export interface RouterDeps {
   config: HubConfig;
   adapter: Adapter;
+  /** Optional override (tests inject a locally-keyed verifier). */
+  verifier?: PortalTokenVerifier;
 }
 
 export function makeRouter(deps: RouterDeps) {
+  const verifier = deps.verifier ?? makePortalVerifier(deps.config);
   return async function route(
     req: IncomingMessage,
     res: ServerResponse
@@ -58,7 +62,7 @@ export function makeRouter(deps: RouterDeps) {
       return;
     }
 
-    if (!authorized(req, deps.config)) {
+    if (!(await authorized(req, deps.config, verifier))) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'unauthorized' }));
       return;
@@ -78,10 +82,27 @@ export function makeRouter(deps: RouterDeps) {
   };
 }
 
-function authorized(req: IncomingMessage, cfg: HubConfig): boolean {
-  if (!cfg.authToken) return true;
-  const header = req.headers['authorization'];
-  return typeof header === 'string' && header === `Bearer ${cfg.authToken}`;
+/**
+ * Authorize a request. The hub is fully open only when neither a static token
+ * nor Portal OIDC is configured (loopback dev). Otherwise it accepts the static
+ * `HUB_TOKEN` bearer, or — when OIDC is enabled — a valid CI-Portal JWT.
+ */
+async function authorized(
+  req: IncomingMessage,
+  cfg: HubConfig,
+  verifier: PortalTokenVerifier
+): Promise<boolean> {
+  const header =
+    typeof req.headers['authorization'] === 'string'
+      ? req.headers['authorization']
+      : '';
+  if (!cfg.authToken && !verifier.enabled) return true;
+  if (cfg.authToken && header === `Bearer ${cfg.authToken}`) return true;
+  if (verifier.enabled && header.startsWith('Bearer ')) {
+    const result = await verifier.verify(header.slice(7));
+    if (result.ok) return true;
+  }
+  return false;
 }
 
 async function readJsonBody<T>(req: IncomingMessage): Promise<T> {

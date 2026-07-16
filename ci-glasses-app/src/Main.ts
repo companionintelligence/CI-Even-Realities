@@ -35,7 +35,15 @@ import { WebSpeechSTT } from './stt/WebSpeechSTT.ts';
 import { GlassesRenderer } from './glasses/GlassesRenderer.ts';
 import { StatusBar } from './ui/StatusBar.ts';
 import { ChatView } from './ui/ChatView.ts';
-import { SettingsView } from './ui/SettingsView.ts';
+import { SettingsView, type AuthPanel } from './ui/SettingsView.ts';
+import { OidcClient } from './auth/OidcClient.ts';
+import { AuthStore } from './auth/AuthStore.ts';
+import { localStoragePort, bridgeStoragePort } from './auth/StoragePort.ts';
+import {
+  OidcTokenProvider,
+  StaticKeyProvider,
+  type TokenProvider,
+} from './auth/TokenProvider.ts';
 
 async function main(): Promise<void> {
   // Surface URL params early — used for `?screen=` deep-linking and for
@@ -63,6 +71,71 @@ async function main(): Promise<void> {
   };
   const adapter = new ApiAdapter(effectiveCfg);
   const tts = new TTSPlayer();
+
+  // ── Authentication (CI-Portal OIDC) ─────────────────────────────────────────
+  // "Sign in with Companion Intelligence": Authorization-Code + PKCE against the
+  // CI-Portal Better-Auth IdP. The access token then replaces the static API key
+  // as the Bearer sent to the backend. Tokens persist via localStorage in
+  // browser mode and are upgraded to device-backed bridge storage once the Even
+  // Hub bridge is available.
+  const oidcConfigFromSettings = () => {
+    const c = settings.get();
+    return { issuer: c.oidcIssuer, clientId: c.oidcClientId, scope: c.oidcScope };
+  };
+  const oidcClient = new OidcClient(oidcConfigFromSettings(), localStoragePort);
+  const authStore = new AuthStore(oidcClient, localStoragePort);
+  await authStore.load();
+
+  let tokenProvider: TokenProvider;
+  function refreshTokenProvider(): void {
+    const c = settings.get();
+    tokenProvider =
+      c.authMode === 'oidc' && authStore.isSignedIn()
+        ? new OidcTokenProvider(authStore)
+        : new StaticKeyProvider(() => settings.get().apiKey);
+    adapter.setTokenProvider(tokenProvider);
+  }
+
+  // Complete an in-flight redirect login before anything sends a request.
+  if (OidcClient.isCallback(window.location.search)) {
+    try {
+      const tokens = await oidcClient.completeLoginFromRedirect(window.location.search);
+      await authStore.signIn(tokens);
+      settings.set({ authMode: 'oidc' });
+    } catch (e) {
+      console.error('OIDC sign-in failed:', e);
+    } finally {
+      // Strip code/state so a reload can't replay the (already consumed) code.
+      window.history.replaceState(
+        {},
+        '',
+        window.location.origin + window.location.pathname
+      );
+    }
+  }
+  refreshTokenProvider();
+
+  const authPanel: AuthPanel = {
+    isSignedIn: () => authStore.isSignedIn(),
+    getIdentity: () => authStore.getIdentity(),
+    signIn: async () => {
+      oidcClient.updateConfig(oidcConfigFromSettings());
+      await oidcClient.redirectToLogin();
+    },
+    signOut: async () => {
+      await authStore.signOut();
+      settings.set({ authMode: 'apiKey' });
+      refreshTokenProvider();
+    },
+    completeManual: async (input: string) => {
+      oidcClient.updateConfig(oidcConfigFromSettings());
+      const tokens = await oidcClient.completeLoginFromRedirect(input);
+      await authStore.signIn(tokens);
+      settings.set({ authMode: 'oidc' });
+      refreshTokenProvider();
+    },
+    applyConfig: () => oidcClient.updateConfig(oidcConfigFromSettings()),
+  };
 
   /**
    * Glasses-side session id. Sent in chat-completion metadata so the hub can
@@ -114,7 +187,7 @@ async function main(): Promise<void> {
 
   // Views
   const chatView = new ChatView(viewContainer, statusBar);
-  const settingsView = new SettingsView(viewContainer, settings, adapter);
+  const settingsView = new SettingsView(viewContainer, settings, adapter, authPanel);
 
   settingsView.hide();
 
@@ -153,6 +226,23 @@ async function main(): Promise<void> {
     bridge = await waitForEvenAppBridge();
     statusBar.connectBridge(bridge);
     statusBar.setStatus('connected');
+
+    // Upgrade token persistence to device-backed bridge storage and pick up a
+    // session saved on a previous on-device launch, then re-sync the provider.
+    const activeBridge = bridge;
+    try {
+      await authStore.useStorage(
+        bridgeStoragePort({
+          setLocalStorage: (k, v) => activeBridge.setLocalStorage(k, v),
+          getLocalStorage: (k) => activeBridge.getLocalStorage(k),
+        })
+      );
+      refreshTokenProvider();
+      settingsView.refresh();
+      statusBar.setModel(settings.get().model);
+    } catch (e) {
+      console.warn('Auth storage upgrade failed:', e);
+    }
 
     micCapture = new MicCapture(bridge);
     chatView.setMicCapture(micCapture);
@@ -308,7 +398,7 @@ async function main(): Promise<void> {
   async function transcribeAudio(audio: ArrayBuffer): Promise<string> {
     const cfg = settings.get();
     if (cfg.sttProvider === 'whisper') {
-      const whisper = new WhisperSTT(cfg.baseUrl, cfg.apiKey);
+      const whisper = new WhisperSTT(cfg.baseUrl, cfg.apiKey, undefined, tokenProvider);
       return whisper.transcribe(audio, 'wav');
     } else {
       const webSpeech = new WebSpeechSTT();

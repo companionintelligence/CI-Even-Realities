@@ -36,6 +36,16 @@ export interface HubConfig {
   openclawToken: string;
   /** Working directory passed to coding-agent subprocesses. */
   agentCwd: string;
+
+  // ── CI-Portal OIDC resource-server ────────────────────────────────────────
+  /** When true, accept CI-Portal-issued JWTs (verified via JWKS) as auth. */
+  portalOidcEnabled: boolean;
+  /** Expected `iss` claim, e.g. `https://hub.ci.computer`. */
+  portalIssuer: string;
+  /** JWKS endpoint used to verify token signatures (EdDSA). */
+  portalJwksUri: string;
+  /** Comma-separated allowed `aud` values (CI-Portal sets aud === client_id). */
+  portalAudience: string;
 }
 
 const KINDS = new Set<BackendKind>([
@@ -57,17 +67,41 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
   // LAN/Tailscale exposure with HUB_BIND once a token is configured.
   const explicitBind = env['HUB_BIND'];
   const bind = explicitBind ?? (authToken ? '0.0.0.0' : '127.0.0.1');
+
+  // Canonical CI-Hub inference env vars (see CI-Hub inference-env-resolver):
+  // `CI_LLM_BASE_URL` is `${ollama}/v1`; the passthrough adapter appends
+  // `/v1/...` itself, so strip a trailing `/v1` when using it as downstream.
+  const ciLlmBase = env['CI_LLM_BASE_URL'];
+  const downstreamUrl =
+    env['DOWNSTREAM_URL'] ??
+    (ciLlmBase ? ciLlmBase.replace(/\/v1\/?$/, '') : 'http://localhost:11434');
+  const downstreamApiKey =
+    env['DOWNSTREAM_API_KEY'] ?? env['CI_LLM_API_KEY'] ?? '';
+
+  // Portal OIDC verification. Issuer/JWKS default to CI-Portal prod and match
+  // CI-Server's PortalTokenService defaults so tokens verify identically.
+  const portalIssuer =
+    env['PORTAL_OIDC_ISSUER'] ?? env['CI_CLOUD_URL'] ?? 'https://hub.ci.computer';
+  const portalJwksUri =
+    env['PORTAL_OIDC_JWKS_URI'] ??
+    `${portalIssuer.replace(/\/+$/, '')}/api/auth/jwks`;
+
   return {
     port: Number(env['HUB_PORT'] ?? 8787),
     bind,
     authToken,
     agentKind: parseKind(env['AGENT_KIND']),
-    downstreamUrl: env['DOWNSTREAM_URL'] ?? 'http://localhost:11434',
-    downstreamApiKey: env['DOWNSTREAM_API_KEY'] ?? '',
+    downstreamUrl,
+    downstreamApiKey,
     claudeBinary: env['CLAUDE_BIN'] ?? 'claude',
     codexBinary: env['CODEX_BIN'] ?? 'codex',
     openclawGatewayUrl: env['OPENCLAW_GATEWAY_URL'] ?? '',
     openclawToken: env['OPENCLAW_TOKEN'] ?? '',
     agentCwd: env['AGENT_CWD'] ?? process.cwd(),
+    portalOidcEnabled: (env['PORTAL_OIDC_ENABLED'] ?? '').toLowerCase() === 'true',
+    portalIssuer,
+    portalJwksUri,
+    portalAudience:
+      env['PORTAL_OIDC_AUDIENCE'] ?? 'ci-hub,ci-even,ci-server',
   };
 }

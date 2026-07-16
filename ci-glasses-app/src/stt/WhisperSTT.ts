@@ -6,12 +6,14 @@
  */
 
 import type { STTEngine } from './STTEngine.ts';
+import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 export class WhisperSTT implements STTEngine {
   constructor(
     private baseUrl: string,
     private apiKey: string,
-    private model = 'whisper-1'
+    private model = 'whisper-1',
+    private tokenProvider?: TokenProvider
   ) {}
 
   isAvailable(): boolean {
@@ -34,15 +36,15 @@ export class WhisperSTT implements STTEngine {
     formData.append('model', this.model);
     formData.append('response_format', 'json');
 
-    const response = await fetch(
-      `${this.baseUrl}/v1/audio/transcriptions`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: formData,
-      }
+    const response = await authedFetch(
+      this.tokenProvider,
+      this.apiKey,
+      (bearer) =>
+        fetch(`${this.baseUrl}/v1/audio/transcriptions`, {
+          method: 'POST',
+          headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+          body: formData,
+        })
     );
 
     if (!response.ok) {

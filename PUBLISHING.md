@@ -18,12 +18,14 @@ npm run pack:ehpk       # builds + produces ci-companion.ehpk
 
 ## Pre-flight checklist
 
-- [ ] `npm test` passes (currently 64 tests)
+- [ ] `npm test` passes (currently 99 tests)
 - [ ] `npm run typecheck` clean
 - [ ] `npm run build` produces `dist/` with `index.html`, JS, CSS
-- [ ] `app.json` version bumped (semver)
+- [ ] `app.json` version bumped (semver) — currently `0.4.0`
 - [ ] Backend URL field in Settings defaults to a sensible value (today: `http://localhost:8080`)
-- [ ] `permissions.network.whitelist` is `["*"]` so users can point at their own hub / Ollama / OpenAI URLs
+- [ ] `permissions.network.whitelist` is `["*"]` so users can point at their own hub / Ollama / OpenAI URLs **and reach CI-Portal for OIDC sign-in**
+- [ ] "Sign in with Companion Intelligence" (CI-Portal OIDC) reaches the configured issuer; signed-out API-key mode still works
+- [ ] CI-Hub quick-connect fills a valid Ollama/Hermes/OpenClaw backend from a Hub base URL
 - [ ] Manually smoke-tested in the Even Hub simulator against at least one live backend (recommend Ollama)
 
 ---
@@ -37,13 +39,13 @@ The portal validates `app.json` against a fixed schema. The current file is:
   "package_id": "com.companionintelligence.ciglasses",
   "edition": "202601",
   "name": "CI Companion",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.7",
   "entrypoint": "index.html",
   "permissions": [
     { "name": "g2-microphone", "desc": "Capture voice queries from the G2 glasses for STT." },
-    { "name": "network", "desc": "Send prompts to your configured AI backend …", "whitelist": ["*"] }
+    { "name": "network", "desc": "Sign in with Companion Intelligence (CI-Portal OIDC) and send prompts to your configured AI backend …", "whitelist": ["*"] }
   ],
   "supported_languages": ["en"]
 }
@@ -65,6 +67,33 @@ The portal validates `app.json` against a fixed schema. The current file is:
 | `supported_languages` | ISO codes. We only ship English right now. |
 
 If you add a new permission (say `phone-microphone` for a fallback STT path), bump the version and re-pack.
+
+---
+
+## Authentication & CI-Hub connection (new in 0.4.0)
+
+**Sign in with Companion Intelligence (CI-Portal OIDC).** The Account section in
+Settings runs an Authorization-Code + PKCE flow against the CI-Portal Better-Auth
+IdP (public client, no secret). Because the Even Hub SDK cannot open an external
+browser, the flow redirects the phone WebView to the Portal and completes the
+code exchange when the app reloads at the redirect URI; a manual code-paste
+fallback is provided for WebViews that can't round-trip the redirect. The
+resulting access token becomes the `Authorization: Bearer` for backend calls,
+replacing the static API key. Tokens persist through device-backed bridge storage
+(localStorage in simulator/browser) and auto-refresh.
+
+- Issuer / client id / scope are configurable (Account → Advanced). Defaults:
+  issuer `https://hub.ci.computer/api/auth`, client `ci-hub`, scope
+  `openid email profile offline_access`.
+- API-key mode still works; a fresh install defaults to it, so nothing breaks for
+  users who don't sign in.
+- The companion `agent-hub` can verify these tokens (`PORTAL_OIDC_ENABLED=true`) —
+  see `agent-hub/README.md`.
+
+**CI-Hub quick-connect.** Enter your Hub base host once; one tap fills the
+standardized backend URL / kind / model for **Ollama** (`:11434/v1`, `local-llm`),
+**Hermes** (Ollama `/v1` with a Hermes model), or **OpenClaw** (`:8787` via
+agent-hub). See `ci-glasses-app/src/config/HubPresets.ts`.
 
 ---
 

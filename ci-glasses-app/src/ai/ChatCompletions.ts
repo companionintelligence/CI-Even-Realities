@@ -8,6 +8,7 @@
 import type { BackendConfig } from '../config/Settings.ts';
 import type { AgentEvent } from './AgentEvent.ts';
 import { parseSSEEvents } from './StreamParser.ts';
+import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 export interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -17,10 +18,17 @@ export interface Message {
 export class ChatCompletions {
   private history: Message[] = [];
 
-  constructor(private config: BackendConfig) {}
+  constructor(
+    private config: BackendConfig,
+    private tokenProvider?: TokenProvider
+  ) {}
 
   updateConfig(config: BackendConfig): void {
     this.config = config;
+  }
+
+  setTokenProvider(provider: TokenProvider | undefined): void {
+    this.tokenProvider = provider;
   }
 
   clearHistory(): void {
@@ -70,17 +78,19 @@ export class ChatCompletions {
     };
     if (metadata) body['metadata'] = metadata;
 
-    const response = await fetch(
-      `${this.config.baseUrl}/v1/chat/completions`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.config.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal,
-      }
+    const response = await authedFetch(
+      this.tokenProvider,
+      this.config.apiKey,
+      (bearer) =>
+        fetch(`${this.config.baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal,
+        })
     );
 
     if (!response.ok) {

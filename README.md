@@ -26,7 +26,7 @@ The default tab and landing surface. Shows the CI Companion mark, quick-prompt s
 
 ### Settings
 
-The configuration tab. The **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming. Below it are the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Everything persists client-side (localStorage) — no backend is contacted to render this screen. The teal `--primary` accent marks the active tab and the selected backend card.
+The configuration tab. The **Account** card offers **Sign in with Companion Intelligence** (CI-Portal OIDC) and shows the signed-in identity; the **CI-Hub** card is a one-tap quick-connect (Ollama / Hermes / OpenClaw) derived from your Hub base URL. Below them, the **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming, followed by the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Token/session state persists through device-backed bridge storage (localStorage in the simulator). The teal `--primary` accent marks the active tab and the selected backend card.
 
 <img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: AI Backend kind picker with the CI teal accent on the selected card, plus System Prompt, STT, TTS, and Reset sections" width="380">
 
@@ -141,14 +141,24 @@ evenhub-simulator http://<YOUR_LAN_IP>:5173
 
 The simulator opens a browser window that mirrors what the Even Hub mobile app renders.
 
-### 4 — Configure your AI backend
+### 4 — Sign in and pick a backend
 
-Open the **Settings** tab inside the app and set:
+Open the **Settings** tab. Two fast paths:
+
+- **Account → Sign in with Companion Intelligence** runs the CI-Portal OIDC flow
+  (Authorization-Code + PKCE). The returned access token is used for backend
+  calls and refreshes itself — no API key to manage. Issuer / client / scope are
+  configurable under *Advanced* (defaults: issuer `https://hub.ci.computer/api/auth`,
+  client `ci-hub`).
+- **CI-Hub quick-connect** — set your Hub base URL, then tap **Ollama**, **Hermes**,
+  or **OpenClaw** to fill the backend fields with the standardized CI-Hub endpoints.
+
+Or configure the **AI Backend** card manually:
 
 | Field | Default | Description |
 |---|---|---|
 | Backend URL | `http://localhost:8080` | Base URL of any OpenAI-compatible server |
-| API Key | `ci-local-key` | Bearer token (can be any string for local backends) |
+| API Key | `ci-local-key` | Bearer token (ignored once you sign in with OIDC) |
 | Model | `ci-companion` | Model name forwarded to the backend |
 | API Mode | `auto` | `auto` probes the server; or force `completions` / `responses` |
 | STT Provider | `whisper` | `whisper` (server-side) or `webspeech` (browser) |
