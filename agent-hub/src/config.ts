@@ -1,8 +1,10 @@
 /**
  * config.ts
  *
- * Reads hub configuration from environment variables. One process serves one
- * adapter kind — switch by re-launching with a different `AGENT_KIND`.
+ * Reads hub configuration from environment variables. The hub multiplexes every
+ * configured target at once (see server.ts `buildRegistry`); each request picks
+ * its adapter by `metadata.agent_kind`. `AGENT_KIND` only sets the default used
+ * when a request omits `agent_kind`.
  */
 
 import type { BackendKind } from './adapters/Adapter.ts';
@@ -46,6 +48,18 @@ export interface HubConfig {
   portalJwksUri: string;
   /** Comma-separated allowed `aud` values (CI-Portal sets aud === client_id). */
   portalAudience: string;
+
+  // ── Ecosystem targets (multiplexed by metadata.agent_kind) ────────────────
+  /** Hermes agent gateway base URL (OpenAI-compatible, e.g. http://<hub>:8642). */
+  hermesGatewayUrl: string;
+  /** Hermes gateway bearer token (its APP_SEED). */
+  hermesToken: string;
+  /** CI-Server ("Companion Memory") base URL (e.g. http://<hub>:3030). */
+  ciServerUrl: string;
+  /** Memory-scoped CI-Server API key (sent as x-api-key). */
+  ciServerApiKey: string;
+  /** Recall path; `/memory/recall` direct, `/api/memory/recall` via Hub proxy. */
+  ciServerMemoryPath: string;
 }
 
 const KINDS = new Set<BackendKind>([
@@ -53,6 +67,8 @@ const KINDS = new Set<BackendKind>([
   'local-llm',
   'claude-cli',
   'codex-cli',
+  'hermes',
+  'memory',
   'openclaw',
 ]);
 
@@ -103,5 +119,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     portalJwksUri,
     portalAudience:
       env['PORTAL_OIDC_AUDIENCE'] ?? 'ci-hub,ci-even,ci-server',
+    hermesGatewayUrl: env['HERMES_GATEWAY_URL'] ?? '',
+    hermesToken: env['HERMES_APP_SEED'] ?? env['HERMES_TOKEN'] ?? '',
+    ciServerUrl: env['CI_SERVER_URL'] ?? '',
+    ciServerApiKey: env['CI_SERVER_API_KEY'] ?? env['CI_SERVER_TOKEN'] ?? '',
+    ciServerMemoryPath: env['CI_SERVER_MEMORY_PATH'] ?? '/memory/recall',
   };
 }

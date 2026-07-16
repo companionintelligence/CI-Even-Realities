@@ -28,6 +28,9 @@ const QUICK_ACTIONS: ReadonlyArray<{ label: string; prompt: string }> = [
   { label: 'Read me my next event', prompt: 'What is my next calendar event?' },
   { label: 'Set a 5-min timer', prompt: 'Start a 5 minute timer.' },
   { label: 'Define a word', prompt: 'Define the word "ephemeral" in one line.' },
+  // Ecosystem chips — most useful with the Memory / Hermes / OpenClaw presets.
+  { label: 'What do you know about…', prompt: 'What do you know about ' },
+  { label: 'Recall my recent notes', prompt: 'Recall my most recent notes and summarize them.' },
 ];
 
 export class ChatView {

@@ -435,11 +435,13 @@ export class SettingsView {
       name: string;
       hint: string;
     }> = [
-      { value: 'local-llm',  name: 'Local LLM',   hint: 'Ollama / vLLM / Hermes' },
+      { value: 'local-llm',  name: 'Local LLM',   hint: 'Ollama / vLLM on your Hub' },
       { value: 'openai',     name: 'OpenAI-like', hint: 'Direct or any provider' },
+      { value: 'hermes',     name: 'Hermes',      hint: 'Agent via agent-hub' },
+      { value: 'openclaw',   name: 'OpenClaw',    hint: 'Agent via agent-hub' },
+      { value: 'memory',     name: 'Memory',      hint: 'CI-Server recall via hub' },
       { value: 'claude-cli', name: 'Claude Code', hint: 'via agent-hub' },
       { value: 'codex-cli',  name: 'Codex CLI',   hint: 'via agent-hub' },
-      { value: 'openclaw',   name: 'OpenClaw',    hint: 'Gateway via agent-hub' },
     ];
     for (const k of KINDS) {
       const card = document.createElement('button');

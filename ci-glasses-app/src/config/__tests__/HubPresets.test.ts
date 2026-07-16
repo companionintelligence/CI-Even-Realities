@@ -37,15 +37,24 @@ describe('hubPresets', () => {
     const presets = hubPresets('http://ci-hub.local');
     const byService = Object.fromEntries(presets.map((p) => [p.service, p]));
 
+    // Ollama — direct OpenAI /v1.
     expect(byService.ollama.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.ollama}`);
     expect(byService.ollama.patch.backendKind).toBe('local-llm');
     expect(byService.ollama.patch.apiKey).toBe('ollama');
 
-    expect(byService.hermes.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.ollama}`);
-    expect(byService.hermes.patch.model).toBe('hermes4');
+    // Hermes — real agent, brokered by agent-hub.
+    expect(byService.hermes.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
+    expect(byService.hermes.patch.backendKind).toBe('hermes');
+    expect(byService.hermes.patch.model).toBe('hermes-agent');
 
+    // OpenClaw — agent gateway via agent-hub; model is the agent target.
     expect(byService.openclaw.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
     expect(byService.openclaw.patch.backendKind).toBe('openclaw');
+    expect(byService.openclaw.patch.model).toBe('openclaw/default');
+
+    // Memory — CI-Server recall via agent-hub.
+    expect(byService.memory.patch.baseUrl).toBe(`http://ci-hub.local:${HUB_PORTS.agentHub}`);
+    expect(byService.memory.patch.backendKind).toBe('memory');
   });
 });
 

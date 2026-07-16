@@ -201,6 +201,20 @@ describe('ApiAdapter', () => {
     });
   });
 
+  describe('ecosystem kinds are hub-routed (force chat completions)', () => {
+    it.each(['hermes', 'memory', 'openclaw'] as const)(
+      'never probes /v1/responses for %s',
+      async (backendKind) => {
+        fetchMock.mockResolvedValue(makeCompletionsResponse(`${backendKind} ok`));
+        const adapter = new ApiAdapter({ ...BASE_CONFIG, backendKind, apiMode: 'auto' });
+        const result = await collect(adapter.sendMessage('hi'));
+        const calls = fetchMock.mock.calls as [string, RequestInit | undefined][];
+        expect(calls.every(([, opts]) => opts?.method !== 'OPTIONS')).toBe(true);
+        expect(result).toEqual([`${backendKind} ok`]);
+      }
+    );
+  });
+
   describe('sendMessage with AbortSignal', () => {
     it('passes the signal to fetch and propagates abort', async () => {
       const controller = new AbortController();
