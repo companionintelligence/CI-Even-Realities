@@ -1,6 +1,6 @@
 # agent-hub
 
-> Local HTTP service that exposes an OpenAI-compatible SSE surface in front of multiple agents — Claude Code, Codex CLI, OpenClaw, Ollama / vLLM / Hermes. The Even Realities G2 glasses app speaks **one** wire format; the hub is the swap point.
+> Local HTTP service that exposes an OpenAI-compatible SSE surface in front of multiple agents — Claude Code, Codex CLI, OpenClaw, Ollama / vLLM / Hermes. The Even Realities G2 glasses app speaks **one** wire format; the hub is the swap point. The hub also proxies speech-to-text (`/v1/audio/transcriptions` → any Whisper-compatible server), so the glasses need exactly one URL for chat **and** voice.
 
 See [`../architecture.md`](../architecture.md) for the full design.
 
@@ -12,6 +12,7 @@ See [`../architecture.md`](../architecture.md) for the full design.
 |---|---|---|
 | `GET`  | `/healthz` | Liveness + reports current adapter `kind` |
 | `POST` | `/v1/chat/completions` | OpenAI-shaped request. Returns SSE when `stream: true`; returns a single JSON `chat.completion` object when `stream: false` |
+| `POST` | `/v1/audio/transcriptions` | Whisper-compatible STT proxy: forwards multipart audio verbatim to `STT_URL`, injecting `STT_API_KEY` server-side. `501` when `STT_URL` is unset |
 | `POST` | `/v1/sessions/:id/approve` | Resolve a `permission_prompt` emitted by a coding-agent adapter |
 
 ### Extended SSE events
@@ -62,6 +63,8 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `CI_SERVER_API_KEY` | *(unset)* | Memory-scoped CI-Server API key (sent as `x-api-key`). |
 | `CI_SERVER_MEMORY_PATH` | `/memory/recall` | Recall path; `/api/memory/recall` when fronting via the Hub/Traefik proxy. |
 | `CI_SERVER_TURN_PATH` | `/memory/turn` | Turn write-back path used by memory augmentation (`metadata.use_memory`). |
+| `STT_URL` | *(empty)* | Base URL of any Whisper-compatible transcription server — faster-whisper-server, speaches, LocalAI, or OpenAI. Enables `POST /v1/audio/transcriptions`; unset → `501`. |
+| `STT_API_KEY` | *(empty)* | Bearer token for the STT upstream, injected server-side (never shipped to the glasses). |
 
 ---
 
