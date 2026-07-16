@@ -68,6 +68,33 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 
 ---
 
+## Run as a CI-Hub app / Docker
+
+The hub ships as a CI-Hub marketplace app — **Companion Glasses Bridge** (`ci-glasses-bridge` in CI-Marketplace) — so a Hub owner installs it with one click instead of exporting the table above by hand. The manifest declares `hub_integration.inference` and `hub_integration.memory`, and CI-Hub injects the canonical env at install time:
+
+| Injected by CI-Hub | Read by the hub as | Enables |
+|---|---|---|
+| `CI_LLM_BASE_URL` | `DOWNSTREAM_URL` alias (trailing `/v1` stripped) | `openai` / `local-llm` chat against the Hub's Ollama |
+| `CI_LLM_API_KEY` | `DOWNSTREAM_API_KEY` alias | — |
+| `CI_SERVER_URL` | `memory` target base URL | Companion Memory recall |
+| `CI_SERVER_TOKEN` | `CI_SERVER_API_KEY` alias | — |
+
+That means **zero manual env for Ollama chat + memory recall**. The app defaults `PORTAL_OIDC_ENABLED=true`, so the glasses authenticate with "Sign in with Companion Intelligence" — no token copying at install either. Optional extras remain opt-in via the app's install form (or plain env when running the image by hand): `HERMES_GATEWAY_URL` / `HERMES_APP_SEED` for the `hermes` target, `OPENCLAW_GATEWAY_URL` / `OPENCLAW_TOKEN` for `openclaw`, and `HUB_TOKEN` for static-bearer clients. Speech-to-text is configured in the glasses app itself (it talks to its Whisper endpoint directly), so no STT env exists on the hub.
+
+The same image runs standalone:
+
+```bash
+docker build -t ghcr.io/companionintelligence/ci-glasses-bridge:0.1.0 agent-hub/
+docker run -p 8787:8787 \
+  -e CI_LLM_BASE_URL=http://host.docker.internal:11434/v1 \
+  -e HUB_TOKEN=change-me \
+  ghcr.io/companionintelligence/ci-glasses-bridge:0.1.0
+```
+
+The image compiles `src/` → `dist/` in a build stage and runs `node dist/server.js` on `node:22-alpine` with production deps only (no `tsx`). It sets `HUB_PORT=8787` and `HUB_BIND=0.0.0.0` (containers must bind beyond loopback; auth still gates every request) and carries a `/healthz` Docker `HEALTHCHECK`.
+
+---
+
 ## Adapters
 
 | Kind | Streams text | Permission prompts | Notes |
