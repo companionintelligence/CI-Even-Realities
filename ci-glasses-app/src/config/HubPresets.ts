@@ -6,19 +6,20 @@
  * base host. This mirrors how CI-Hub advertises its inference surface to apps
  * (`CI_LLM_BASE_URL = ${ollama}/v1`, `CI_LLM_API_KEY = 'ollama'`).
  *
- * Topology (per CI-Hub inference module):
+ * Topology:
  *  - **Ollama** is the only OpenAI-compatible `/v1` endpoint, on port 11434.
  *    The app appends `/v1/...` itself, so a preset's `baseUrl` stops at the port.
- *  - **Hermes** is a Nous Research agent served *through* Ollama — from the
- *    glasses it is the same Ollama `/v1` endpoint with a Hermes model name.
- *  - **OpenClaw** is an agent gateway; the glasses reach it via the companion
- *    `agent-hub` (`openclaw` kind), whose OpenClaw adapter fronts the gateway.
- *    Default agent-hub port is 8787.
+ *    It may be reached directly (no secret needed).
+ *  - **Hermes**, **OpenClaw**, and **Memory** are first-class agent targets
+ *    reached *through the companion `agent-hub`* (default port 8787), which
+ *    multiplexes by `agent_kind` and holds each target's secret server-side
+ *    (Hermes APP_SEED, OpenClaw gateway token, memory API key). The glasses send
+ *    one credential (their OIDC/hub bearer) and pick the target via `backendKind`.
  */
 
 import type { BackendConfig } from './Settings.ts';
 
-export type HubService = 'ollama' | 'hermes' | 'openclaw';
+export type HubService = 'ollama' | 'hermes' | 'openclaw' | 'memory';
 
 /** Canonical CI-Hub service ports. */
 export const HUB_PORTS = {
@@ -76,24 +77,34 @@ export function hubPresets(hubBaseUrl: string): HubPreset[] {
     {
       service: 'hermes',
       label: 'Hermes',
-      hint: `${ollamaUrl}/v1 · Nous Hermes model via Ollama`,
+      hint: `${agentHubUrl} · Hermes agent via agent-hub`,
       patch: {
-        baseUrl: ollamaUrl,
-        backendKind: 'local-llm',
-        apiKey: 'ollama',
+        baseUrl: agentHubUrl,
+        backendKind: 'hermes',
         apiMode: 'completions',
-        model: 'hermes4',
+        model: 'hermes-agent',
       },
     },
     {
       service: 'openclaw',
       label: 'OpenClaw',
-      hint: `${agentHubUrl} · OpenClaw gateway via agent-hub`,
+      hint: `${agentHubUrl} · OpenClaw agent via agent-hub`,
       patch: {
         baseUrl: agentHubUrl,
         backendKind: 'openclaw',
         apiMode: 'completions',
-        model: 'ci-companion',
+        model: 'openclaw/default',
+      },
+    },
+    {
+      service: 'memory',
+      label: 'Memory',
+      hint: `${agentHubUrl} · recall from Companion Memory (CI-Server)`,
+      patch: {
+        baseUrl: agentHubUrl,
+        backendKind: 'memory',
+        apiMode: 'completions',
+        model: 'ci-memory',
       },
     },
   ];

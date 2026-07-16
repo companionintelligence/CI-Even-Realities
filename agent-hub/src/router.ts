@@ -10,7 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import type { Adapter, ChatRequest } from './adapters/Adapter.ts';
+import type { Adapter, BackendKind, ChatRequest } from './adapters/Adapter.ts';
 import { writeAgentEvent, writeDone, writeSSEHead } from './sse.ts';
 import { bindSession, getSession } from './sessions.ts';
 import type { HubConfig } from './config.ts';
@@ -18,13 +18,48 @@ import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
 
 export interface RouterDeps {
   config: HubConfig;
-  adapter: Adapter;
+  /**
+   * Single adapter (back-compat) OR a multi-target registry. When `registry`
+   * is set, each request selects its adapter by `metadata.agent_kind`, falling
+   * back to `defaultKind`. This is how the glasses drive Ollama / Hermes /
+   * OpenClaw / memory through one hub without restarting it.
+   */
+  adapter?: Adapter;
+  registry?: Map<BackendKind, Adapter>;
+  defaultKind?: BackendKind;
   /** Optional override (tests inject a locally-keyed verifier). */
   verifier?: PortalTokenVerifier;
 }
 
+/** Normalize deps to a registry + default kind, supporting the single-adapter form. */
+function resolveRegistry(deps: RouterDeps): {
+  registry: Map<BackendKind, Adapter>;
+  defaultKind: BackendKind;
+} {
+  if (deps.registry && deps.registry.size > 0) {
+    const defaultKind =
+      deps.defaultKind ?? (deps.registry.keys().next().value as BackendKind);
+    return { registry: deps.registry, defaultKind };
+  }
+  const a = deps.adapter;
+  if (!a) throw new Error('RouterDeps requires either `adapter` or `registry`');
+  return { registry: new Map([[a.kind, a]]), defaultKind: a.kind };
+}
+
+/** Pick the adapter for a request: metadata.agent_kind, else the default. */
+function selectAdapter(
+  body: ChatRequest,
+  registry: Map<BackendKind, Adapter>,
+  defaultKind: BackendKind
+): Adapter {
+  const raw = body.metadata?.['agent_kind'];
+  const kind = typeof raw === 'string' ? (raw as BackendKind) : undefined;
+  return (kind && registry.get(kind)) || registry.get(defaultKind)!;
+}
+
 export function makeRouter(deps: RouterDeps) {
   const verifier = deps.verifier ?? makePortalVerifier(deps.config);
+  const { registry, defaultKind } = resolveRegistry(deps);
   return async function route(
     req: IncomingMessage,
     res: ServerResponse
@@ -58,7 +93,9 @@ export function makeRouter(deps: RouterDeps) {
 
     if (method === 'GET' && url === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, kind: deps.adapter.kind }));
+      res.end(
+        JSON.stringify({ ok: true, kind: defaultKind, kinds: [...registry.keys()] })
+      );
       return;
     }
 
@@ -69,7 +106,7 @@ export function makeRouter(deps: RouterDeps) {
     }
 
     if (method === 'POST' && url === '/v1/chat/completions') {
-      return handleChatCompletions(req, res, deps);
+      return handleChatCompletions(req, res, registry, defaultKind);
     }
 
     const approveMatch = url.match(/^\/v1\/sessions\/([^/]+)\/approve$/);
@@ -116,7 +153,8 @@ async function readJsonBody<T>(req: IncomingMessage): Promise<T> {
 async function handleChatCompletions(
   req: IncomingMessage,
   res: ServerResponse,
-  { adapter }: RouterDeps
+  registry: Map<BackendKind, Adapter>,
+  defaultKind: BackendKind
 ): Promise<void> {
   let body: ChatRequest;
   try {
@@ -128,6 +166,8 @@ async function handleChatCompletions(
     );
     return;
   }
+
+  const adapter = selectAdapter(body, registry, defaultKind);
 
   const metaSessionId =
     typeof body.metadata?.['session_id'] === 'string'

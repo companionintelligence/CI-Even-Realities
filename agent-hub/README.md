@@ -42,7 +42,7 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `HUB_PORT` | `8787` | Bind port |
 | `HUB_BIND` | `127.0.0.1` (no token) / `0.0.0.0` (token set) | Interface to bind on. Default is loopback when `HUB_TOKEN` is empty so a misconfigured hub doesn't end up exposed on the LAN. Set `HUB_BIND=0.0.0.0` once a token is configured. |
 | `HUB_TOKEN` | *(empty)* | Static bearer token; empty = no static auth + loopback-only by default |
-| `AGENT_KIND` | `openai` | One of `openai`, `local-llm`, `claude-cli`, `codex-cli`, `openclaw` |
+| `AGENT_KIND` | `openai` | **Default** target when a request omits `metadata.agent_kind`. The hub multiplexes all configured targets at once — the glasses switch between `openai`, `local-llm`, `hermes`, `openclaw`, `memory`, `claude-cli`, `codex-cli` per request without a restart. |
 | `DOWNSTREAM_URL` | `http://localhost:11434` | Used by `openai` / `local-llm`. Falls back to `CI_LLM_BASE_URL` (trailing `/v1` stripped). |
 | `DOWNSTREAM_API_KEY` | *(empty)* | Used by `openai` / `local-llm`. Falls back to `CI_LLM_API_KEY`. |
 | `CI_LLM_BASE_URL` | *(unset)* | Canonical CI-Hub inference URL (`${ollama}/v1`); aliased into `DOWNSTREAM_URL`. |
@@ -56,6 +56,11 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `PORTAL_OIDC_ISSUER` | `https://hub.ci.computer` (or `CI_CLOUD_URL`) | Expected `iss` claim. |
 | `PORTAL_OIDC_JWKS_URI` | `${issuer}/api/auth/jwks` | JWKS endpoint used to verify EdDSA signatures. |
 | `PORTAL_OIDC_AUDIENCE` | `ci-hub,ci-even,ci-server` | Comma-separated allowed `aud` (CI-Portal sets `aud === client_id`). |
+| `HERMES_GATEWAY_URL` | *(unset)* | Hermes agent gateway base URL (OpenAI-compatible, e.g. `http://<hub>:8642`). Registers the `hermes` target. |
+| `HERMES_APP_SEED` | *(unset)* | Hermes gateway bearer token. |
+| `CI_SERVER_URL` | *(unset)* | CI-Server ("Companion Memory") base URL (e.g. `http://<hub>:3030`). Registers the `memory` target. |
+| `CI_SERVER_API_KEY` | *(unset)* | Memory-scoped CI-Server API key (sent as `x-api-key`). |
+| `CI_SERVER_MEMORY_PATH` | `/memory/recall` | Recall path; `/api/memory/recall` when fronting via the Hub/Traefik proxy. |
 
 ---
 
@@ -64,10 +69,12 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | Kind | Streams text | Permission prompts | Notes |
 |---|---|---|---|
 | `openai` | ✅ | ❌ | Forwards to any OpenAI-compatible URL. |
-| `local-llm` | ✅ | ❌ | Same shape; convention for Ollama / vLLM / Hermes. |
+| `local-llm` | ✅ | ❌ | Same shape; convention for Ollama / vLLM on the Hub. |
+| `hermes` | ✅ | ❌ | Forwards to the Hermes agent gateway (OpenAI-shaped); token held server-side. |
+| `openclaw` | ✅ | ❌ | Forwards to an OpenClaw Gateway; strips code blocks and link clutter for the HUD. |
+| `memory` | ✅ | ❌ | Recalls from CI-Server ("Companion Memory") and streams the block back; api-key held server-side. |
 | `claude-cli` | ✅ | ✅ | Spawns `claude -p --input-format stream-json --output-format stream-json --session-id <id>`. |
 | `codex-cli` | ✅ | ✅ | Spawns `codex --json --session <id>`. |
-| `openclaw` | ✅ | ❌ | Forwards to an OpenClaw Gateway; strips code blocks and link clutter for the HUD. |
 
 ### How `approve` works (`claude-cli` / `codex-cli`)
 

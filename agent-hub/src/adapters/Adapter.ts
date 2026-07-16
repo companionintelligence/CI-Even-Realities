@@ -12,7 +12,9 @@ export type BackendKind =
   | 'local-llm'
   | 'claude-cli'
   | 'codex-cli'
-  | 'openclaw';
+  | 'openclaw'
+  | 'hermes'
+  | 'memory';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';

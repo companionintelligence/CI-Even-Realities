@@ -28,13 +28,17 @@ export type AuthMode = 'apiKey' | 'oidc';
  * - `claude-cli` — agent-hub spawning Claude Code in stream-json mode
  * - `codex-cli`  — agent-hub spawning Codex CLI in JSON streaming mode
  * - `openclaw`   — agent-hub forwarding to an OpenClaw Gateway
+ * - `hermes`     — agent-hub forwarding to the Hermes agent gateway (OpenAI-shaped)
+ * - `memory`     — agent-hub recalling from CI-Server ("Companion Memory")
  */
 export type BackendKind =
   | 'openai'
   | 'local-llm'
   | 'claude-cli'
   | 'codex-cli'
-  | 'openclaw';
+  | 'openclaw'
+  | 'hermes'
+  | 'memory';
 
 export interface BackendConfig {
   /** Base URL of the AI backend, e.g. "http://localhost:8080" */

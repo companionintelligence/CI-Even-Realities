@@ -21,6 +21,8 @@ const HUB_ROUTED_KINDS = new Set<BackendConfig['backendKind']>([
   'codex-cli',
   'openclaw',
   'local-llm',
+  'hermes',
+  'memory',
 ]);
 
 export class ApiAdapter {

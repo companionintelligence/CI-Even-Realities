@@ -10,17 +10,21 @@
  * (`thinking` -> `done`) is emitted as a convenience so the HUD stays lively.
  */
 
-import type { Adapter, ChatRequest, SessionContext } from './Adapter.ts';
+import type { Adapter, BackendKind, ChatRequest, SessionContext } from './Adapter.ts';
 import type { AgentEvent } from '../events.ts';
 
 export interface PassthroughOptions {
   baseUrl: string;
   apiKey?: string;
-  kind?: 'openai' | 'local-llm';
+  /**
+   * Adapter kind. Any OpenAI-compatible target uses this adapter — `openai`,
+   * `local-llm` (Ollama/vLLM), and `hermes` (the Hermes gateway is OpenAI-shaped).
+   */
+  kind?: BackendKind;
 }
 
 export class PassthroughAdapter implements Adapter {
-  readonly kind: 'openai' | 'local-llm';
+  readonly kind: BackendKind;
 
   constructor(private opts: PassthroughOptions) {
     this.kind = opts.kind ?? 'openai';

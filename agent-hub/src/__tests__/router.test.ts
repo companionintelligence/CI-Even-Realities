@@ -74,7 +74,8 @@ describe('router', () => {
     await withServer(router, async (port) => {
       const r = await fetch(`http://localhost:${port}/healthz`);
       const body = await r.json();
-      expect(body).toEqual({ ok: true, kind: 'openai' });
+      expect(body).toMatchObject({ ok: true, kind: 'openai' });
+      expect(body.kinds).toContain('openai');
     });
   });
 
@@ -192,6 +193,47 @@ describe('router', () => {
         choices: Array<{ message: { content: string } }>;
       };
       expect(body.choices[0]?.message.content).toBe('hello world');
+    });
+  });
+
+  it('multiplexes: selects the adapter by metadata.agent_kind, else default', async () => {
+    // Two labelled fake adapters in a registry.
+    class Tagged implements Adapter {
+      constructor(readonly kind: BackendKind, private tag: string) {}
+      async *run(): AsyncIterable<AgentEvent> {
+        yield { type: 'text', delta: this.tag };
+      }
+    }
+    const registry = new Map<BackendKind, Adapter>([
+      ['local-llm', new Tagged('local-llm', 'from-ollama')],
+      ['hermes', new Tagged('hermes', 'from-hermes')],
+      ['memory', new Tagged('memory', 'from-memory')],
+    ]);
+    const router = makeRouter({ config: BASE_CFG, registry, defaultKind: 'local-llm' });
+    await withServer(router, async (port) => {
+      const call = async (agent_kind?: string) => {
+        const r = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: false,
+            messages: [{ role: 'user', content: 'hi' }],
+            metadata: agent_kind ? { agent_kind } : {},
+          }),
+        });
+        return (await r.json()).choices[0].message.content as string;
+      };
+      expect(await call('hermes')).toBe('from-hermes');
+      expect(await call('memory')).toBe('from-memory');
+      expect(await call()).toBe('from-ollama'); // default
+      expect(await call('nonexistent')).toBe('from-ollama'); // unknown → default
+    });
+
+    // healthz lists every registered target.
+    await withServer(router, async (port) => {
+      const body = await (await fetch(`http://localhost:${port}/healthz`)).json();
+      expect(body.kinds).toEqual(expect.arrayContaining(['local-llm', 'hermes', 'memory']));
     });
   });
 
