@@ -7,25 +7,29 @@
  * (`CI_LLM_BASE_URL = ${ollama}/v1`, `CI_LLM_API_KEY = 'ollama'`).
  *
  * Topology:
- *  - **Ollama** is the only OpenAI-compatible `/v1` endpoint, on port 11434.
- *    The app appends `/v1/...` itself, so a preset's `baseUrl` stops at the port.
- *    It may be reached directly (no secret needed).
+ *  - **Every preset points at the companion `agent-hub`** (default port 8787).
+ *    The glasses use ONE baseUrl for chat AND voice (STT posts to
+ *    `${baseUrl}/v1/audio/transcriptions`), and the agent-hub now fronts both —
+ *    so even the Ollama preset routes through it rather than hitting
+ *    Ollama's :11434 `/v1` directly, which would leave STT unreachable.
+ *  - **Assistant** is the default experience: `backendKind: 'auto'` lets the
+ *    agent-hub route each request by intent (memory · Hermes · OpenClaw · chat).
  *  - **Hermes**, **OpenClaw**, and **Memory** are first-class agent targets
- *    reached *through the companion `agent-hub`* (default port 8787), which
- *    multiplexes by `agent_kind` and holds each target's secret server-side
- *    (Hermes APP_SEED, OpenClaw gateway token, memory API key). The glasses send
- *    one credential (their OIDC/hub bearer) and pick the target via `backendKind`.
+ *    the agent-hub multiplexes by `agent_kind`, holding each target's secret
+ *    server-side (Hermes APP_SEED, OpenClaw gateway token, memory API key,
+ *    Ollama downstream key). The glasses send one credential (their OIDC/hub
+ *    bearer) and pick the target via `backendKind`.
  */
 
 import type { BackendConfig } from './Settings.ts';
 
-export type HubService = 'ollama' | 'hermes' | 'openclaw' | 'memory';
+export type HubService = 'assistant' | 'ollama' | 'hermes' | 'openclaw' | 'memory';
 
 /** Canonical CI-Hub service ports. */
 export const HUB_PORTS = {
-  /** Ollama OpenAI-compatible server (`/v1`). */
+  /** Ollama OpenAI-compatible server (`/v1`) — reached via the agent-hub. */
   ollama: 11434,
-  /** Companion agent-hub (routes `openclaw` / coding-agent kinds). */
+  /** Companion agent-hub (fronts every preset, incl. STT). */
   agentHub: 8787,
 } as const;
 
@@ -59,17 +63,31 @@ export function hubHost(hubBaseUrl: string): string {
 /** Build the standardized presets for a given Hub base host. */
 export function hubPresets(hubBaseUrl: string): HubPreset[] {
   const host = hubHost(hubBaseUrl);
-  const ollamaUrl = `${host}:${HUB_PORTS.ollama}`;
   const agentHubUrl = `${host}:${HUB_PORTS.agentHub}`;
   return [
     {
+      // First on purpose — the "just talk to it" default for new users.
+      service: 'assistant',
+      label: 'Assistant',
+      hint: `${agentHubUrl} · auto-routes: memory · Hermes · OpenClaw · chat`,
+      patch: {
+        baseUrl: agentHubUrl,
+        backendKind: 'auto',
+        apiMode: 'completions',
+        model: 'ci-companion',
+      },
+    },
+    {
+      // Routed via agent-hub (not Ollama's :11434 directly): the glasses use
+      // ONE baseUrl for chat AND voice (STT), and the agent-hub now fronts
+      // both. The hub injects its own downstream Ollama key, so the preset no
+      // longer needs to overwrite the user's apiKey with 'ollama'.
       service: 'ollama',
       label: 'Ollama',
-      hint: `${ollamaUrl}/v1 · local model on your Hub`,
+      hint: `${agentHubUrl} · via agent-hub · Ollama on your Hub`,
       patch: {
-        baseUrl: ollamaUrl,
+        baseUrl: agentHubUrl,
         backendKind: 'local-llm',
-        apiKey: 'ollama',
         apiMode: 'completions',
         model: 'llama3.2',
       },

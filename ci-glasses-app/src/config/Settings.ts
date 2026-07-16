@@ -30,6 +30,9 @@ export type AuthMode = 'apiKey' | 'oidc';
  * - `openclaw`   — agent-hub forwarding to an OpenClaw Gateway
  * - `hermes`     — agent-hub forwarding to the Hermes agent gateway (OpenAI-shaped)
  * - `memory`     — agent-hub recalling from CI-Server ("Companion Memory")
+ * - `auto`       — "Assistant": agent-hub routes each request by intent
+ *                  (memory · Hermes · OpenClaw · plain chat) — the glasses
+ *                  send one kind and the hub picks the target per message
  */
 export type BackendKind =
   | 'openai'
@@ -38,7 +41,8 @@ export type BackendKind =
   | 'codex-cli'
   | 'openclaw'
   | 'hermes'
-  | 'memory';
+  | 'memory'
+  | 'auto';
 
 export interface BackendConfig {
   /** Base URL of the AI backend, e.g. "http://localhost:8080" */
@@ -89,6 +93,13 @@ export interface BackendConfig {
    * OpenClaw) are derived from this — see config/HubPresets.ts.
    */
   hubBaseUrl: string;
+  /**
+   * Memory-augmented chat: ask the agent-hub to recall from Companion Memory
+   * (CI-Server) before each reply and save the conversation back afterwards.
+   * Sent as `metadata.use_memory` on every chat request. Requires the
+   * agent-hub to be connected to a CI-Server; off by default.
+   */
+  useMemory: boolean;
 }
 
 const STORAGE_KEY = 'ci-glasses-config';
@@ -119,9 +130,13 @@ const DEFAULT_CONFIG: BackendConfig = {
   oidcClientId: 'ci-hub',
   oidcScope: 'openid email profile offline_access',
 
-  // Canonical CI-Hub base. Ollama's OpenAI-compatible surface lives at
-  // `${hubBaseUrl}:11434/v1` (see config/HubPresets.ts).
+  // Canonical CI-Hub base. Service presets (agent-hub on :8787) derive from
+  // this host (see config/HubPresets.ts).
   hubBaseUrl: 'http://localhost',
+
+  // Memory-augmented chat is opt-in: it only works once the user's agent-hub
+  // is connected to a CI-Server, so a fresh install keeps it off.
+  useMemory: false,
 };
 
 export class Settings {
