@@ -7,7 +7,7 @@
 
 import type { BackendConfig } from '../config/Settings.ts';
 import type { AgentEvent } from './AgentEvent.ts';
-import { parseSSEStream } from './StreamParser.ts';
+import { parseSSEEvents } from './StreamParser.ts';
 import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 export class ResponsesApi {
@@ -31,6 +31,43 @@ export class ResponsesApi {
   }
 
   async *send(userText: string, signal?: AbortSignal): AsyncGenerator<string> {
+    let response = await this.postResponse(userText, signal);
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      // Server-side context can expire (e.g. it aged out); if this looks
+      // like that, drop it and retry once as a fresh turn instead of
+      // surfacing a raw API error the user can't do anything about.
+      if (this.isExpiredContextError(response.status, errText) && this.previousResponseId) {
+        this.previousResponseId = undefined;
+        response = await this.postResponse(userText, signal);
+        if (!response.ok) {
+          const retryErrText = await response.text().catch(() => '');
+          throw new Error(`Responses API error ${response.status}: ${retryErrText}`);
+        }
+      } else {
+        throw new Error(`Responses API error ${response.status}: ${errText}`);
+      }
+    }
+
+    if (this.config.streaming) {
+      for await (const evt of parseSSEEvents(response)) {
+        if (evt.type === 'text' && evt.delta) yield evt.delta;
+        else if (evt.type === 'response_id') this.previousResponseId = evt.id;
+      }
+    } else {
+      const data = await response.json() as {
+        id?: string;
+        output_text?: string;
+      };
+      if (data.id) {
+        this.previousResponseId = data.id;
+      }
+      yield data.output_text ?? '';
+    }
+  }
+
+  private async postResponse(userText: string, signal?: AbortSignal): Promise<Response> {
     const body: Record<string, unknown> = {
       model: this.config.model,
       input: userText,
@@ -45,7 +82,7 @@ export class ResponsesApi {
       }
     }
 
-    const response = await authedFetch(
+    return authedFetch(
       this.tokenProvider,
       this.config.apiKey,
       (bearer) =>
@@ -59,26 +96,17 @@ export class ResponsesApi {
           signal,
         })
     );
+  }
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`Responses API error ${response.status}: ${errText}`);
-    }
-
-    if (this.config.streaming) {
-      yield* parseSSEStream(response);
-      // Note: response ID for server-side context is not available in streaming
-      // mode from the SSE events alone. When store: true, the server tracks it.
-    } else {
-      const data = await response.json() as {
-        id?: string;
-        output_text?: string;
-      };
-      if (data.id) {
-        this.previousResponseId = data.id;
-      }
-      yield data.output_text ?? '';
-    }
+  /**
+   * Heuristically detect an expired/unknown `previous_response_id` from
+   * OpenAI's Responses API. There's no dedicated error code for this — it
+   * surfaces as a 400 (or 404) whose message names the response id — so we
+   * match on the wording OpenAI uses rather than a structured field.
+   */
+  private isExpiredContextError(status: number, body: string): boolean {
+    if (status !== 400 && status !== 404) return false;
+    return /previous_response_id|previous response/i.test(body);
   }
 
   /**

@@ -1,19 +1,22 @@
 /**
  * router.ts
  *
- * Dispatches HTTP requests to the right handler. Implements two endpoints:
+ * Dispatches HTTP requests to the right handler. Implements:
  *
- *   POST /v1/chat/completions       — OpenAI-shaped, returns SSE
- *   POST /v1/audio/transcriptions   — Whisper-compatible STT proxy (stt.ts)
- *   POST /v1/sessions/:id/approve   — Approve/deny an outstanding prompt
- *   GET  /healthz                   — Liveness
+ *   POST /v1/chat/completions          — OpenAI-shaped, returns SSE
+ *   GET  /v1/chat/completions/stream   — Reattach to an in-flight/just-finished turn's SSE
+ *   POST /v1/audio/transcriptions      — Whisper-compatible STT proxy (stt.ts)
+ *   POST /v1/sessions/:id/approve      — Approve/deny an outstanding prompt
+ *   POST /v1/sessions/:id/cancel       — Cancel a session's in-flight turn
+ *   GET  /healthz                      — Liveness
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import type { Adapter, BackendKind, ChatRequest } from './adapters/Adapter.ts';
-import { writeAgentEvent, writeDone, writeSSEHead } from './sse.ts';
+import { writeSSEHead } from './sse.ts';
 import { bindSession, getSession } from './sessions.ts';
+import { startTurn, getTurn, cancelTurn } from './streamBuffer.ts';
 import type { HubConfig } from './config.ts';
 import { makePortalVerifier, type PortalTokenVerifier } from './auth.ts';
 import { classifyIntent } from './routing/intent.ts';
@@ -184,6 +187,10 @@ export function makeRouter(deps: RouterDeps) {
       return handleChatCompletions(req, res, registry, defaultKind, deps.config);
     }
 
+    if (method === 'GET' && url.startsWith('/v1/chat/completions/stream')) {
+      return handleResumeStream(req, res);
+    }
+
     if (method === 'POST' && url === '/v1/audio/transcriptions') {
       return handleTranscription(req, res, deps.config);
     }
@@ -191,6 +198,14 @@ export function makeRouter(deps: RouterDeps) {
     const approveMatch = url.match(/^\/v1\/sessions\/([^/]+)\/approve$/);
     if (method === 'POST' && approveMatch) {
       return handleApprove(req, res, deps, decodeURIComponent(approveMatch[1]!));
+    }
+
+    const cancelMatch = url.match(/^\/v1\/sessions\/([^/]+)\/cancel$/);
+    if (method === 'POST' && cancelMatch) {
+      const ok = cancelTurn(decodeURIComponent(cancelMatch[1]!));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok }));
+      return;
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -273,13 +288,15 @@ async function handleChatCompletions(
   bindSession(sessionId, adapter);
 
   const ac = new AbortController();
-  req.on('close', () => ac.abort());
 
   // Honor the client's `stream` flag. When false, buffer all text deltas and
   // return a single OpenAI Chat Completions response — matches what
   // ChatCompletions.sendEvents expects in non-streaming mode and keeps
   // hub-routed kinds usable without SSE.
   if (body.stream === false) {
+    // No reconnect concept for a single synchronous response — a dropped
+    // connection here really does mean "give up".
+    req.on('close', () => ac.abort());
     let text = '';
     let errorMessage: string | undefined;
     try {
@@ -318,16 +335,27 @@ async function handleChatCompletions(
     return;
   }
 
+  // Streaming: route events through a per-session TurnBuffer instead of
+  // writing straight to `res`, so a client that reconnects after a dropped
+  // connection (WebView backgrounded, wifi hiccup) can replay what it missed
+  // via GET /v1/chat/completions/stream instead of losing the in-flight
+  // answer. A dropped connection alone no longer aborts the adapter run —
+  // only an explicit cancel (POST .../cancel) or a new turn superseding this
+  // one on the same session does (see streamBuffer.ts).
   writeSSEHead(res);
+  const turnId = randomUUID();
+  const buffer = startTurn(sessionId, turnId, body.model, () => ac.abort());
+  buffer.attach(res, -1);
+  req.on('close', () => buffer.detach(res));
 
   // Surface the 'auto' routing decision on the HUD before the adapter stream.
   // (No representation in the non-streaming schema, so stream:false skips it.)
   if (selection.autoRoutedKind) {
-    writeAgentEvent(
-      res,
-      { type: 'agent_status', kind: 'thinking', label: `→ ${selection.autoRoutedKind}` },
-      body.model
-    );
+    buffer.push({
+      type: 'agent_status',
+      kind: 'thinking',
+      label: `→ ${selection.autoRoutedKind}`,
+    });
   }
 
   try {
@@ -335,17 +363,52 @@ async function handleChatCompletions(
       sessionId,
       signal: ac.signal,
     })) {
-      writeAgentEvent(res, evt, body.model);
+      buffer.push(evt);
     }
   } catch (e) {
-    writeAgentEvent(
-      res,
-      { type: 'error', message: (e as Error).message },
-      body.model
-    );
+    buffer.push({ type: 'error', message: (e as Error).message });
   } finally {
-    writeDone(res);
+    buffer.finish();
   }
+}
+
+/**
+ * GET /v1/chat/completions/stream?session_id=...&after=<cursor>
+ *
+ * Reattach to an in-flight or just-finished turn's SSE, replaying any
+ * buffered events after `after` (a cursor is just a count of events already
+ * consumed; -1 or omitted means "from the start"). 404 when no turn is
+ * buffered for that session (never started, or evicted after completion);
+ * 410 when the requested cursor is older than what the ring buffer
+ * retained — either way the client's only recourse is a fresh POST.
+ */
+async function handleResumeStream(
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
+  const parsed = new URL(req.url ?? '', 'http://internal');
+  const sessionId = parsed.searchParams.get('session_id') ?? '';
+  const afterRaw = parsed.searchParams.get('after');
+  const afterNum = afterRaw !== null ? Number(afterRaw) : NaN;
+  const after = Number.isFinite(afterNum) ? afterNum : -1;
+
+  const buffer = sessionId ? getTurn(sessionId) : undefined;
+  if (!buffer) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'no_active_turn' }));
+    return;
+  }
+  if (!buffer.canResumeFrom(after)) {
+    res.writeHead(410, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({ error: 'gap', message: 'resume point no longer buffered' })
+    );
+    return;
+  }
+
+  writeSSEHead(res);
+  buffer.attach(res, after);
+  req.on('close', () => buffer.detach(res));
 }
 
 async function handleApprove(

@@ -198,6 +198,23 @@ describe('parseSSEStream', () => {
       expect(events.map((e) => e.type)).toEqual(['text', 'agent_status']);
     });
 
+    it('generator return value is true when the stream reaches [DONE]', async () => {
+      const response = makeSSEResponse(['data: [DONE]\n']);
+      const gen = parseSSEEvents(response);
+      let result = await gen.next();
+      while (!result.done) result = await gen.next();
+      expect(result.value).toBe(true);
+    });
+
+    it('generator return value is false when the stream ends without [DONE]', async () => {
+      const data = JSON.stringify({ choices: [{ delta: { content: 'partial' } }] });
+      const response = makeSSEResponse([`data: ${data}\n`]); // no trailing [DONE]
+      const gen = parseSSEEvents(response);
+      let result = await gen.next();
+      while (!result.done) result = await gen.next();
+      expect(result.value).toBe(false);
+    });
+
     it('drops events for unknown event names', async () => {
       const response = makeSSEResponse([
         'event: telemetry\ndata: {"foo":1}\n\n',
@@ -220,6 +237,34 @@ describe('parseSSEStream', () => {
         { type: 'text', delta: 'Hello' },
         { type: 'text', delta: ' world' },
       ]);
+    });
+
+    it('extracts a response_id from a response.created event', async () => {
+      const response = makeSSEResponse([
+        'event: response.created\n' +
+          'data: {"type":"response.created","response":{"id":"resp_abc"}}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toEqual([{ type: 'response_id', id: 'resp_abc' }]);
+    });
+
+    it('extracts a response_id from a response.completed event', async () => {
+      const response = makeSSEResponse([
+        'event: response.completed\n' +
+          'data: {"type":"response.completed","response":{"id":"resp_final"}}\n\n',
+        'data: [DONE]\n',
+      ]);
+      const events = await collectEvents(parseSSEEvents(response));
+      expect(events).toEqual([{ type: 'response_id', id: 'resp_final' }]);
+    });
+
+    it('drops a response.created event with no response.id', async () => {
+      const response = makeSSEResponse([
+        'event: response.created\ndata: {"type":"response.created"}\n\n',
+        'data: [DONE]\n',
+      ]);
+      expect(await collectEvents(parseSSEEvents(response))).toEqual([]);
     });
 
     it('treats unrecognised permission_prompt shape as a no-op', async () => {

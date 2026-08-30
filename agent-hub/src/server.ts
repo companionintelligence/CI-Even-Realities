@@ -39,9 +39,23 @@ function buildRegistry(cfg: HubConfig): Map<BackendKind, Adapter> {
     kind: 'local-llm',
   }));
 
-  // Coding-agent CLIs (permission prompts).
-  m.set('claude-cli', new ClaudeCliAdapter({ binary: cfg.claudeBinary, cwd: cfg.agentCwd }));
-  m.set('codex-cli', new CodexCliAdapter({ binary: cfg.codexBinary, cwd: cfg.agentCwd }));
+  // Coding-agent CLIs (permission prompts). Timeouts guard against a hung
+  // subprocess leaving the HUD stuck on "thinking…" forever.
+  const cliTimeouts = {
+    inactivityTimeoutMs: cfg.agentInactivityTimeoutMs,
+    wallClockMaxMs: cfg.agentWallClockMaxMs,
+    heartbeatIntervalMs: cfg.agentHeartbeatIntervalMs,
+  };
+  m.set('claude-cli', new ClaudeCliAdapter({
+    binary: cfg.claudeBinary,
+    cwd: cfg.agentCwd,
+    ...cliTimeouts,
+  }));
+  m.set('codex-cli', new CodexCliAdapter({
+    binary: cfg.codexBinary,
+    cwd: cfg.agentCwd,
+    ...cliTimeouts,
+  }));
 
   // OpenClaw gateway (OpenAI-compatible; content stripped for the HUD).
   m.set('openclaw', new OpenClawAdapter({

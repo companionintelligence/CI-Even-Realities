@@ -33,6 +33,16 @@ const CHARS_PER_LINE = Math.floor(DISPLAY_WIDTH_PX / (FONT_SIZE_PX * 0.55));
 // rate while staying well within typical BLE throughput limits.
 const STREAMING_THROTTLE_MS = 150;
 
+// A BLE display write can fail transiently (a brief link hiccup) — retry a
+// couple of times with a short backoff before giving up, rather than
+// dropping the update on the first failure.
+const SEND_MAX_ATTEMPTS = 2;
+const SEND_RETRY_BACKOFF_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // Container IDs
 const TEXT_CONTAINER_ID = 1;
 
@@ -205,12 +215,36 @@ export class GlassesRenderer {
     await this.sendText(lines.join('\n'));
   }
 
+  /**
+   * Send `text` to the display, retrying the whole
+   * textContainerUpgrade→rebuildPageContainer fallback sequence a couple of
+   * times with a short backoff before giving up — a single dropped BLE
+   * packet shouldn't blank the HUD for the rest of the turn.
+   */
   private async sendText(text: string): Promise<void> {
     if (!this.initialized) {
       await this.init();
     }
 
-    // Try textContainerUpgrade first (lightweight update)
+    let lastError: unknown;
+    for (let attempt = 0; attempt < SEND_MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) await sleep(SEND_RETRY_BACKOFF_MS);
+      try {
+        if (await this.trySend(text)) return;
+        lastError = new Error(
+          'GlassesRenderer: both textContainerUpgrade and rebuildPageContainer failed'
+        );
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('GlassesRenderer: sendText failed after retries');
+  }
+
+  /** One attempt: lightweight update, falling back to a full rebuild. */
+  private async trySend(text: string): Promise<boolean> {
     const ok = await this.bridge.textContainerUpgrade(
       new TextContainerUpgrade({
         containerID: TEXT_CONTAINER_ID,
@@ -218,28 +252,23 @@ export class GlassesRenderer {
         content: text,
       })
     );
+    if (ok) return true;
 
-    if (!ok) {
-      // Fall back to full rebuild
-      const container = new RebuildPageContainer({
-        containerTotalNum: 1,
-        textObject: [
-          new TextContainerProperty({
-            containerID: TEXT_CONTAINER_ID,
-            containerName: 'main',
-            xPosition: 0,
-            yPosition: 0,
-            width: DISPLAY_WIDTH_PX,
-            height: 350,
-            content: text,
-          }),
-        ],
-      });
-      const rebuilt = await this.bridge.rebuildPageContainer(container);
-      if (!rebuilt) {
-        throw new Error('GlassesRenderer: both textContainerUpgrade and rebuildPageContainer failed');
-      }
-    }
+    const container = new RebuildPageContainer({
+      containerTotalNum: 1,
+      textObject: [
+        new TextContainerProperty({
+          containerID: TEXT_CONTAINER_ID,
+          containerName: 'main',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH_PX,
+          height: 350,
+          content: text,
+        }),
+      ],
+    });
+    return this.bridge.rebuildPageContainer(container);
   }
 }
 

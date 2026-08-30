@@ -37,7 +37,14 @@ export interface ChatRequest {
 export interface SessionContext {
   /** Stable id for this conversation; used to correlate approvals. */
   sessionId: string;
-  /** Abort signal driven by the HTTP request lifecycle. */
+  /**
+   * Abort signal for this turn. Fires on an explicit cancel
+   * (`POST /v1/sessions/:id/cancel`) or when a new turn supersedes this one
+   * on the same session — NOT merely when the originating HTTP connection
+   * closes, since a dropped connection can reconnect and resume via
+   * `GET /v1/chat/completions/stream` (see streamBuffer.ts). A turn that
+   * outlives its original response is expected to keep running.
+   */
   signal: AbortSignal;
 }
 

@@ -22,6 +22,7 @@ export class StatusBar {
   private indicator: HTMLElement;
   private textEl: HTMLElement;
   private modelEl: HTMLElement;
+  private hudEl: HTMLElement;
   private status: AppStatus = 'disconnected';
   private modelName = '';
 
@@ -38,8 +39,15 @@ export class StatusBar {
     this.modelEl = document.createElement('span');
     this.modelEl.className = 'status-bar__model';
 
+    this.hudEl = document.createElement('span');
+    this.hudEl.className = 'status-bar__hud-warning';
+    this.hudEl.textContent = '⚠ HUD';
+    this.hudEl.title = "Glasses display isn't updating — phone chat still works";
+    this.hudEl.style.display = 'none';
+
     this.el.appendChild(this.indicator);
     this.el.appendChild(this.textEl);
+    this.el.appendChild(this.hudEl);
     this.el.appendChild(this.modelEl);
     this.container.appendChild(this.el);
 
@@ -54,6 +62,16 @@ export class StatusBar {
   setStatus(status: AppStatus): void {
     this.status = status;
     this.render();
+  }
+
+  /**
+   * Toggle a quiet "glasses display isn't updating" indicator, independent
+   * of the main connection/activity status — a HUD write can keep failing
+   * (or keep succeeding again) mid-turn without the app's overall status
+   * changing.
+   */
+  setHudDegraded(degraded: boolean): void {
+    this.hudEl.style.display = degraded ? '' : 'none';
   }
 
   /** Connect to the Even Hub SDK to track device connection state. */

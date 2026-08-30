@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { generateKeyPair, SignJWT } from 'jose';
@@ -427,6 +427,187 @@ describe('router', () => {
         }),
       });
       expect(ok.status).toBe(200);
+    });
+  });
+
+  /** Adapter whose turn pauses mid-stream until the test calls `release()`. */
+  class SteppableAdapter implements Adapter {
+    readonly kind = 'openai' as const;
+    wasAborted = false;
+    private waiters: Array<() => void> = [];
+
+    async *run(_req: ChatRequest, ctx: SessionContext): AsyncIterable<AgentEvent> {
+      ctx.signal.addEventListener('abort', () => {
+        this.wasAborted = true;
+        // Unblock any pending wait, same as a real adapter killing its
+        // subprocess on abort and thereby resolving a pending dequeue.
+        this.waiters.splice(0).forEach((w) => w());
+      });
+      yield { type: 'text', delta: 'first ' };
+      await new Promise<void>((resolve) => this.waiters.push(resolve));
+      if (ctx.signal.aborted) return;
+      yield { type: 'text', delta: 'second' };
+      yield { type: 'agent_status', kind: 'done' };
+    }
+
+    get hasWaiter(): boolean {
+      return this.waiters.length > 0;
+    }
+
+    release(): void {
+      this.waiters.shift()?.();
+    }
+  }
+
+  /** Read the stream until the first blank-line-terminated SSE frame arrives. */
+  async function readFirstFrame(response: Response): Promise<string> {
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (!buf.includes('\n\n')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+    }
+    return buf;
+  }
+
+  describe('streaming resume', () => {
+    it('replays only events after the given cursor on reconnect', async () => {
+      const adapter = new SteppableAdapter();
+      const router = makeRouter({ config: BASE_CFG, adapter });
+      await withServer(router, async (port) => {
+        const first = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'hi' }],
+            metadata: { session_id: 'resume-1' },
+          }),
+        });
+        // Consume exactly the first event (seq 0: "first "), then abandon
+        // this response without closing it — simulating a client that
+        // stops reading (backgrounded WebView, dropped wifi) mid-turn.
+        const frame = await readFirstFrame(first);
+        expect(frame).toContain('"first "');
+
+        adapter.release();
+        // Let the adapter's continuation (text "second" + done) reach the
+        // buffer and finish the turn before reconnecting.
+        await new Promise((r) => setTimeout(r, 20));
+
+        const replay = await fetch(
+          `http://localhost:${port}/v1/chat/completions/stream?session_id=resume-1&after=0`
+        );
+        const text = await replay.text();
+        expect(text).not.toContain('"first "');
+        expect(text).toContain('"second"');
+        expect(text).toContain('data: [DONE]');
+      });
+    });
+
+    it('404s a reconnect for a session with no buffered turn', async () => {
+      const adapter = new SteppableAdapter();
+      const router = makeRouter({ config: BASE_CFG, adapter });
+      await withServer(router, async (port) => {
+        const r = await fetch(
+          `http://localhost:${port}/v1/chat/completions/stream?session_id=never-started&after=-1`
+        );
+        expect(r.status).toBe(404);
+      });
+    });
+
+    /** Adapter that floods past the 200-event ring buffer once released. */
+    class FloodingAdapter implements Adapter {
+      readonly kind = 'openai' as const;
+      private waiters: Array<() => void> = [];
+
+      async *run(_req: ChatRequest, _ctx: SessionContext): AsyncIterable<AgentEvent> {
+        yield { type: 'text', delta: 'first' };
+        await new Promise<void>((resolve) => this.waiters.push(resolve));
+        for (let i = 0; i < 250; i++) {
+          yield { type: 'text', delta: `e${i}` };
+        }
+        yield { type: 'agent_status', kind: 'done' };
+      }
+
+      release(): void {
+        this.waiters.shift()?.();
+      }
+    }
+
+    it('410s a reconnect whose cursor was evicted from the ring buffer', async () => {
+      const adapter = new FloodingAdapter();
+      const router = makeRouter({ config: BASE_CFG, adapter });
+      await withServer(router, async (port) => {
+        const first = await fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'hi' }],
+            metadata: { session_id: 'resume-gap' },
+          }),
+        });
+        await readFirstFrame(first);
+        adapter.release();
+        // Let all 250+ events flow through and evict the early ones from
+        // the 200-entry ring buffer before reconnecting.
+        await new Promise((r) => setTimeout(r, 50));
+
+        const r = await fetch(
+          `http://localhost:${port}/v1/chat/completions/stream?session_id=resume-gap&after=0`
+        );
+        expect(r.status).toBe(410);
+      });
+    });
+  });
+
+  describe('session cancel', () => {
+    it('POST .../cancel aborts an in-flight turn and completes its stream', async () => {
+      const adapter = new SteppableAdapter();
+      const router = makeRouter({ config: BASE_CFG, adapter });
+      await withServer(router, async (port) => {
+        const streamPromise = fetch(`http://localhost:${port}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'm',
+            stream: true,
+            messages: [{ role: 'user', content: 'hi' }],
+            metadata: { session_id: 'cancel-1' },
+          }),
+        }).then((r) => r.text());
+
+        await vi.waitFor(() => expect(adapter.hasWaiter).toBe(true));
+
+        const cancelRes = await fetch(
+          `http://localhost:${port}/v1/sessions/cancel-1/cancel`,
+          { method: 'POST' }
+        );
+        expect(cancelRes.status).toBe(200);
+        expect(await cancelRes.json()).toEqual({ ok: true });
+
+        const text = await streamPromise;
+        expect(text).toContain('data: [DONE]');
+        expect(text).not.toContain('"second"');
+        expect(adapter.wasAborted).toBe(true);
+      });
+    });
+
+    it('returns ok:false for a session with no in-flight turn', async () => {
+      const adapter = new SteppableAdapter();
+      const router = makeRouter({ config: BASE_CFG, adapter });
+      await withServer(router, async (port) => {
+        const r = await fetch(`http://localhost:${port}/v1/sessions/nope/cancel`, {
+          method: 'POST',
+        });
+        expect(r.status).toBe(200);
+        expect(await r.json()).toEqual({ ok: false });
+      });
     });
   });
 

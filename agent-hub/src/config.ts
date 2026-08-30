@@ -38,6 +38,20 @@ export interface HubConfig {
   openclawToken: string;
   /** Working directory passed to coding-agent subprocesses. */
   agentCwd: string;
+  /**
+   * Kill a claude-cli/codex-cli subprocess turn if no event arrives on
+   * stdout for this long (ms). Guards against a hung CLI leaving the HUD
+   * stuck on "thinking…" forever.
+   */
+  agentInactivityTimeoutMs: number;
+  /** Hard ceiling on a claude-cli/codex-cli turn regardless of activity (ms). */
+  agentWallClockMaxMs: number;
+  /**
+   * While a claude-cli/codex-cli turn is silently working (e.g. a slow tool
+   * call) but hasn't hit the inactivity timeout, emit a status ping at this
+   * interval so the HUD doesn't look frozen (ms).
+   */
+  agentHeartbeatIntervalMs: number;
 
   // ── CI-Portal OIDC resource-server ────────────────────────────────────────
   /** When true, accept CI-Portal-issued JWTs (verified via JWKS) as auth. */
@@ -129,6 +143,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     openclawGatewayUrl: env['OPENCLAW_GATEWAY_URL'] ?? '',
     openclawToken: env['OPENCLAW_TOKEN'] ?? '',
     agentCwd: env['AGENT_CWD'] ?? process.cwd(),
+    agentInactivityTimeoutMs: Number(env['AGENT_INACTIVITY_TIMEOUT_MS'] ?? 45_000),
+    agentWallClockMaxMs: Number(env['AGENT_WALL_CLOCK_MAX_MS'] ?? 300_000),
+    agentHeartbeatIntervalMs: Number(env['AGENT_HEARTBEAT_INTERVAL_MS'] ?? 5_000),
     portalOidcEnabled: (env['PORTAL_OIDC_ENABLED'] ?? '').toLowerCase() === 'true',
     portalIssuer,
     portalJwksUri,
