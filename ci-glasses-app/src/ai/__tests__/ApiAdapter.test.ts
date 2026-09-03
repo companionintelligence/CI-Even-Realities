@@ -216,6 +216,30 @@ describe('ApiAdapter', () => {
     );
   });
 
+  describe('cancelSession', () => {
+    it('POSTs to /v1/sessions/:id/cancel for hub-routed backend kinds', async () => {
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, backendKind: 'claude-cli' });
+      await adapter.cancelSession('sess-1');
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('http://localhost:8080/v1/sessions/sess-1/cancel');
+      expect(init.method).toBe('POST');
+    });
+
+    it('is a no-op for non-hub-routed backend kinds', async () => {
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, backendKind: 'openai' });
+      await adapter.cancelSession('sess-1');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('swallows fetch failures (best-effort)', async () => {
+      fetchMock.mockRejectedValue(new TypeError('network down'));
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, backendKind: 'claude-cli' });
+      await expect(adapter.cancelSession('sess-1')).resolves.toBeUndefined();
+    });
+  });
+
   describe('sendMessage with AbortSignal', () => {
     it('passes the signal to fetch and propagates abort', async () => {
       const controller = new AbortController();

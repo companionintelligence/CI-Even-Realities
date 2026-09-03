@@ -35,10 +35,17 @@ export async function* parseSSEStream(
  *
  * Unknown event types are silently skipped so the parser is forward-compatible
  * with future hub additions.
+ *
+ * The generator's return value reports whether the stream actually reached
+ * `data: [DONE]` (`true`) versus ending prematurely — connection dropped,
+ * server crashed mid-response — without it (`false`). Plain `for await...of`
+ * consumers can ignore this; callers that need to distinguish a clean finish
+ * from a truncated one (e.g. to decide whether to reconnect) can drive the
+ * iterator manually and inspect the final `{ done: true, value }` result.
  */
 export async function* parseSSEEvents(
   response: Response
-): AsyncGenerator<AgentEvent> {
+): AsyncGenerator<AgentEvent, boolean> {
   if (!response.body) {
     throw new Error('Response body is null');
   }
@@ -82,6 +89,15 @@ export async function* parseSSEEvents(
     ) {
       const delta = extractContent(parsed);
       if (delta) yield { type: 'text', delta };
+      return;
+    }
+    if (
+      name === 'response.created' ||
+      name === 'response.in_progress' ||
+      name === 'response.completed'
+    ) {
+      const id = extractResponseId(parsed);
+      if (id) yield { type: 'response_id', id };
       return;
     }
     if (name === 'agent_status') {
@@ -133,11 +149,11 @@ export async function* parseSSEEvents(
           // Allow `data:` or `data: …` per the SSE spec.
           const data = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
           yield* dispatch(pendingEventName, data.trimStart());
-          if (streamFinished) return;
+          if (streamFinished) return true;
         }
         // Other field lines (id:, retry:, comments starting with `:`) are ignored.
       }
-      if (streamFinished) return;
+      if (streamFinished) return true;
     }
 
     // Flush any final buffered data line (no trailing newline).
@@ -148,6 +164,7 @@ export async function* parseSSEEvents(
       ).trim();
       if (data) yield* dispatch(pendingEventName, data);
     }
+    return streamFinished;
   } finally {
     reader.releaseLock();
   }
@@ -183,6 +200,22 @@ function extractContent(parsed: unknown): string {
   if (typeof delta === 'string') return delta;
 
   return '';
+}
+
+/**
+ * Extract the response id from a Responses API `response.created` /
+ * `response.in_progress` / `response.completed` event, whose payload shape
+ * is `{ type: "...", response: { id: "resp_...", ... } }`.
+ */
+function extractResponseId(parsed: unknown): string | undefined {
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  const obj = parsed as Record<string, unknown>;
+  const response = obj['response'];
+  if (typeof response === 'object' && response !== null) {
+    const id = (response as Record<string, unknown>)['id'];
+    if (typeof id === 'string') return id;
+  }
+  return undefined;
 }
 
 function parseAgentStatus(parsed: unknown): AgentEvent | null {

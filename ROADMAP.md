@@ -21,8 +21,10 @@ Next steps for testing and development of `ci-even-realities`.
 ### Stability
 
 - [ ] **LC3 decoder robustness** — add error handling for malformed BLE audio frames and empty recordings.
-- [ ] **Retry logic for BLE display updates** — if `textContainerUpgrade` and `rebuildPageContainer` both fail, surface an error state rather than silently dropping the update.
+- [x] **Retry logic for BLE display updates** — `GlassesRenderer.sendText()` now retries the textContainerUpgrade→rebuildPageContainer sequence with a short backoff before giving up; a fully-exhausted failure surfaces as a quiet "⚠ HUD" indicator in the status bar (self-clears on the next successful send) instead of silently latching for the rest of the turn.
 - [ ] **Streaming abort** — implement an abort button / gesture that cancels the in-flight `fetch` (via `AbortController`) and stops the SSE stream mid-response.
+- [x] **agent-hub subprocess timeouts** — `claudeCli`/`codexCli` adapters now enforce an inactivity timeout, a wall-clock cap, and a periodic heartbeat status, so a hung CLI subprocess surfaces an error instead of leaving the HUD on "thinking…" forever. Configurable via `AGENT_INACTIVITY_TIMEOUT_MS` / `AGENT_WALL_CLOCK_MAX_MS` / `AGENT_HEARTBEAT_INTERVAL_MS`.
+- [x] **SSE stream resume** — the agent-hub buffers each turn's SSE events per session (`streamBuffer.ts`) and exposes `GET /v1/chat/completions/stream?session_id=...&after=<cursor>`; `ChatCompletions.ts` reconnects through it automatically if the connection drops or ends without `[DONE]`, so a dropped wifi link or backgrounded WebView loses at most a few seconds of text instead of the whole in-flight answer. A dropped connection no longer aborts the turn on its own — explicit cancellation goes through the new `POST /v1/sessions/:id/cancel`, called by the app when the user clears the conversation or starts a new turn.
 
 ---
 
@@ -31,7 +33,7 @@ Next steps for testing and development of `ci-even-realities`.
 ### AI capabilities
 
 - [ ] **Function calling / tool use** — expose the Responses API's native tools (`web_search`, `code_interpreter`) through the UI. Allow the user to enable/disable tools in Settings.
-- [ ] **Multi-modal input** — explore sending images captured from the phone camera alongside the voice prompt.
+- [ ] **Multi-modal input** — explore sending images captured from the phone camera alongside the voice prompt. Design note: other G2 apps report the glasses' own sensor streams (e.g. IMU) as historically unreliable — firmware may not populate them at all — so any new sensor/camera input path should feature-detect and gracefully degrade rather than assume availability.
 - [ ] **Structured output mode** — add a setting to request JSON-structured responses for use-cases like reminders, calendar events, etc.
 
 ### Voice pipeline
@@ -49,7 +51,7 @@ Next steps for testing and development of `ci-even-realities`.
 ### Integration
 
 - [ ] **CI-server agentic skills** — implement the Agent Skills standard to allow CI-server to trigger phone actions (calls, calendar, messages) via the glasses.
-- [ ] **Webhook / push notifications** — allow the backend to proactively push messages to the glasses display (e.g. reminders, news headlines).
+- [ ] **Webhook / push notifications** — allow the backend to proactively push messages to the glasses display (e.g. reminders, news headlines). Design note: rate-limit unsolicited pushes (e.g. a sliding-window cap) independent of any master "allow proactive" toggle, so a misbehaving backend can't spam the HUD — this is a pattern worth baking in from the start rather than retrofitting.
 
 ---
 
@@ -79,8 +81,8 @@ Next steps for testing and development of `ci-even-realities`.
 
 | Limitation | Priority | Notes |
 |---|---|---|
-| `previousResponseId` not captured in streaming mode | High | Responses API streaming events don't include `id`; investigate if the response ID can be extracted from SSE headers or a final event |
-| No retry on failed BLE display update | Medium | Currently the display update is dropped silently |
-| History grows unboundedly in Chat Completions mode | Medium | Add a maximum history length (token budget) to avoid oversized payloads |
-| No error recovery for expired `previous_response_id` | Medium | Server-side context expires; need to detect the error and clear + retry |
+| ~~`previousResponseId` not captured in streaming mode~~ | ~~High~~ | **Fixed.** `StreamParser` now extracts the id from `response.created`/`response.completed` SSE events (a new `response_id` AgentEvent); `ResponsesApi.send()` captures it in both streaming and non-streaming mode. |
+| ~~No retry on failed BLE display update~~ | ~~Medium~~ | **Fixed** — see Stability section above. |
+| History grows unboundedly in Chat Completions mode | Medium | Already handled — `ChatCompletions.sendEvents()` trims to `Settings.maxHistoryMessages` (default 20) after every turn; this row was stale documentation, not an open gap. |
+| ~~No error recovery for expired `previous_response_id`~~ | ~~Medium~~ | **Fixed.** `ResponsesApi` detects a 400/404 whose message names `previous_response_id`, clears the stale id, and retries once as a fresh turn. |
 | Single fixed system prompt | Low | Allow per-session or per-conversation system prompt overrides |

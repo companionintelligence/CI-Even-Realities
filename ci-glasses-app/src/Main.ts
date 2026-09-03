@@ -308,6 +308,11 @@ async function main(): Promise<void> {
         } else {
           currentAbortController?.abort();
           currentAbortController = null;
+          // A dropped local fetch no longer stops the hub's turn on its own
+          // (it may be reconnected to instead) — tell it explicitly so a
+          // still-running coding-agent subprocess doesn't keep burning
+          // tokens/tools after the user has cleared the conversation.
+          void adapter.cancelSession(sessionId);
           adapter.clearHistory();
           chatView.addMessage({
             role: 'system',
@@ -429,8 +434,12 @@ async function main(): Promise<void> {
   }
 
   async function sendToAI(userText: string): Promise<void> {
-    // Cancel any in-flight request before starting a new one
+    // Cancel any in-flight request before starting a new one — abort the
+    // local fetch AND tell the hub to stop the superseded turn server-side,
+    // since a dropped connection alone no longer does that (see
+    // ApiAdapter.cancelSession).
     currentAbortController?.abort();
+    void adapter.cancelSession(sessionId);
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
     statusBar.setStatus('thinking');
@@ -457,22 +466,34 @@ async function main(): Promise<void> {
     let lastDisplayFlush = 0;
     const DISPLAY_THROTTLE_MS = 150;
 
-    let hudRenderFailed = false;
+    // Tracks whether the *most recent* flush in THIS turn failed, purely to
+    // avoid spamming the console on every throttled tick — the status bar
+    // itself is always synced to the actual outcome below (it's a persistent
+    // indicator that must reflect reality across turn boundaries, not just
+    // within this turn's local state). Unlike the old permanent-for-the-turn
+    // latch, each tick still retries — a BLE hiccup can clear mid-turn
+    // (GlassesRenderer itself now also retries internally before a call here
+    // ever fails) and the HUD should resume updating on its own.
+    let hudDegradedThisTurn = false;
     async function flushGlasses(force = false): Promise<void> {
-      if (!renderer || activePrompt || hudRenderFailed) return;
+      if (!renderer || activePrompt) return;
       const now = Date.now();
       if (!force && now - lastDisplayFlush < DISPLAY_THROTTLE_MS) return;
       lastDisplayFlush = now;
       try {
         await renderer.displayText(fullResponse);
+        hudDegradedThisTurn = false;
+        statusBar.setHudDegraded(false);
       } catch (e) {
         // A HUD render failure must never kill the conversation: the phone
         // webview still shows the streamed answer. Seen live when the SDK
         // resolves a bridge in a plain browser whose container calls then
         // fail ("both textContainerUpgrade and rebuildPageContainer failed").
-        // Warn once and stop flushing for the rest of this turn.
-        hudRenderFailed = true;
-        console.warn('Glasses HUD render failed — continuing phone-only:', e);
+        if (!hudDegradedThisTurn) {
+          console.warn('Glasses HUD render failed — continuing phone-only:', e);
+        }
+        hudDegradedThisTurn = true;
+        statusBar.setHudDegraded(true);
       }
     }
 

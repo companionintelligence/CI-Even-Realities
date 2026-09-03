@@ -26,4 +26,11 @@ export type AgentEvent =
       summary: string;
       options: PromptOption[];
     }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  /**
+   * Responses API only: carries the server-assigned response id from a
+   * `response.created`/`response.completed` streaming event, so
+   * {@link ResponsesApi} can capture `previousResponseId` in streaming mode
+   * (previously only captured from the non-streaming JSON response).
+   */
+  | { type: 'response_id'; id: string };

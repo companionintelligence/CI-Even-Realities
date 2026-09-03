@@ -53,6 +53,49 @@ describe('displayPromptCard', () => {
   });
 });
 
+describe('sendText retry', () => {
+  it('retries after a transient failure and succeeds without throwing', async () => {
+    const { bridge, textContainerUpgrade } = makeFakeBridge();
+    let call = 0;
+    textContainerUpgrade.mockImplementation(async () => {
+      call++;
+      return call > 1; // fails once, then succeeds
+    });
+    (bridge as unknown as { rebuildPageContainer: ReturnType<typeof vi.fn> })
+      .rebuildPageContainer = vi.fn(async () => false); // never helps, forces reliance on the retry
+
+    const renderer = new GlassesRenderer(bridge);
+    await expect(renderer.displayText('hello')).resolves.toBeUndefined();
+    expect(textContainerUpgrade).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after exhausting retries when every attempt fails', async () => {
+    const { bridge, textContainerUpgrade } = makeFakeBridge();
+    textContainerUpgrade.mockImplementation(async () => false);
+    (bridge as unknown as { rebuildPageContainer: ReturnType<typeof vi.fn> })
+      .rebuildPageContainer = vi.fn(async () => false);
+
+    const renderer = new GlassesRenderer(bridge);
+    await expect(renderer.displayText('hello')).rejects.toThrow(
+      'both textContainerUpgrade and rebuildPageContainer failed'
+    );
+  });
+
+  it('recovers on the next call after a fully-exhausted failure (no permanent latch)', async () => {
+    const { bridge, textContainerUpgrade } = makeFakeBridge();
+    let failEverything = true;
+    textContainerUpgrade.mockImplementation(async () => !failEverything);
+    (bridge as unknown as { rebuildPageContainer: ReturnType<typeof vi.fn> })
+      .rebuildPageContainer = vi.fn(async () => !failEverything);
+
+    const renderer = new GlassesRenderer(bridge);
+    await expect(renderer.displayText('first')).rejects.toThrow();
+
+    failEverything = false;
+    await expect(renderer.displayText('second')).resolves.toBeUndefined();
+  });
+});
+
 describe('wordWrap', () => {
   it('returns a single empty line for empty string', () => {
     // An empty string is one empty paragraph — it produces one empty line,

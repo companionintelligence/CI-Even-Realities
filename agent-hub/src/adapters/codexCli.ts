@@ -24,7 +24,25 @@ import { DEFAULT_PROMPT_OPTIONS } from '../events.ts';
 export interface CodexCliOptions {
   binary: string;
   cwd: string;
+  /**
+   * Kill the subprocess if no event arrives on stdout for this long (ms).
+   * Guards against a hung CLI leaving the HUD stuck on "thinking…" forever.
+   * Default 45s.
+   */
+  inactivityTimeoutMs?: number;
+  /** Hard ceiling on a turn's total duration regardless of activity (ms). Default 5min. */
+  wallClockMaxMs?: number;
+  /**
+   * While waiting with no new event but before either hard deadline above,
+   * emit a heartbeat status at this interval so the HUD doesn't look frozen
+   * during a slow tool call (ms). Default 5s.
+   */
+  heartbeatIntervalMs?: number;
 }
+
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 45_000;
+const DEFAULT_WALL_CLOCK_MAX_MS = 300_000;
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
 
 interface ProcHandle {
   child: ChildProcessWithoutNullStreams;
@@ -57,13 +75,50 @@ export class CodexCliAdapter implements Adapter {
     const abort = () => this.killProc(ctx.sessionId);
     ctx.signal.addEventListener('abort', abort, { once: true });
 
+    const inactivityTimeoutMs =
+      this.opts.inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
+    const wallClockMaxMs = this.opts.wallClockMaxMs ?? DEFAULT_WALL_CLOCK_MAX_MS;
+    const heartbeatIntervalMs =
+      this.opts.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+    const turnStart = Date.now();
+    let lastActivity = turnStart;
+
     try {
       while (true) {
-        const next = await this.dequeue(handle);
+        const wallClockRemaining = wallClockMaxMs - (Date.now() - turnStart);
+        if (wallClockRemaining <= 0) {
+          this.killProc(ctx.sessionId);
+          yield { type: 'error', message: 'codex subprocess exceeded max turn duration' };
+          return;
+        }
+        const inactivityRemaining =
+          inactivityTimeoutMs - (Date.now() - lastActivity);
+        if (inactivityRemaining <= 0) {
+          this.killProc(ctx.sessionId);
+          yield { type: 'error', message: 'codex subprocess inactivity timeout' };
+          return;
+        }
+        const waitMs = Math.max(
+          1,
+          Math.min(heartbeatIntervalMs, inactivityRemaining, wallClockRemaining)
+        );
+
+        const next = await this.dequeueWithTimeout(handle, waitMs);
+        if (next.timedOut) {
+          // Only a genuine heartbeat (well before either hard deadline) gets
+          // a status ping — see claudeCli.ts for the same pattern.
+          const stillInactive = Date.now() - lastActivity < inactivityTimeoutMs;
+          const stillWithinWallClock = Date.now() - turnStart < wallClockMaxMs;
+          if (stillInactive && stillWithinWallClock) {
+            yield { type: 'agent_status', kind: 'executing' };
+          }
+          continue;
+        }
         if (next.done) {
           yield { type: 'error', message: 'codex subprocess exited' };
           return;
         }
+        lastActivity = Date.now();
         const evt = next.value!;
         yield evt;
         if (evt.type === 'agent_status' && evt.kind === 'done') return;
@@ -168,6 +223,27 @@ export class CodexCliAdapter implements Adapter {
     }
     return new Promise((resolve) => {
       handle.resolve = resolve;
+    });
+  }
+
+  /**
+   * Race `dequeue()` against a timer. On timeout, the original dequeue
+   * promise is simply abandoned — the next call to `dequeue()` replaces
+   * `handle.resolve` with a fresh resolver, so a later event still reaches
+   * whichever dequeue call is current when it arrives.
+   */
+  private dequeueWithTimeout(
+    handle: ProcHandle,
+    timeoutMs: number
+  ): Promise<{ value: AgentEvent | null; done: boolean; timedOut: boolean }> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve({ value: null, done: false, timedOut: true });
+      }, timeoutMs);
+      this.dequeue(handle).then((r) => {
+        clearTimeout(timer);
+        resolve({ ...r, timedOut: false });
+      });
     });
   }
 

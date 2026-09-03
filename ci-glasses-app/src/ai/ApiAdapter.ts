@@ -136,6 +136,38 @@ export class ApiAdapter {
   }
 
   /**
+   * Cancel the hub's in-flight turn for this session — e.g. the user is
+   * about to start a new turn (which would otherwise race the old turn's
+   * subprocess/session) or double-tapped to clear the conversation. A
+   * dropped client connection no longer cancels a turn on its own (it may
+   * reconnect and resume — see {@link sendMessageEvents}), so callers must
+   * call this explicitly wherever the app itself decides a turn is done.
+   * Best-effort: failures are swallowed since the hub's own inactivity/
+   * wall-clock timeouts still bound an abandoned turn's lifetime. Non-hub
+   * backend kinds (`openai`) have no server-side turn to cancel.
+   */
+  async cancelSession(sessionId: string, signal?: AbortSignal): Promise<void> {
+    if (!HUB_ROUTED_KINDS.has(this.config.backendKind)) return;
+    try {
+      await authedFetch(
+        this.tokenProvider,
+        this.config.apiKey,
+        (bearer) =>
+          fetch(
+            `${this.config.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/cancel`,
+            {
+              method: 'POST',
+              headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+              signal,
+            }
+          )
+      );
+    } catch {
+      // Best-effort — see doc comment above.
+    }
+  }
+
+  /**
    * Test whether the configured backend is reachable.
    * Returns an object describing success/failure and which APIs are supported.
    */

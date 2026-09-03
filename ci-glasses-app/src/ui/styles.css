@@ -289,6 +289,14 @@ textarea:focus-visible {
   letter-spacing: 0.02em;
 }
 
+/* Quiet indicator that the glasses HUD isn't updating (phone chat still
+   works) — distinct from the main connection/activity status. */
+.status-bar__hud-warning {
+  font-size: 11px;
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
 /* ─── Tabs ──────────────────────────────────────────────────────────────────── */
 
 .tab-bar {
