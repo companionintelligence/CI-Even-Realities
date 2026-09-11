@@ -11,12 +11,12 @@
  *  5. Ring tap navigates pages; double-tap clears conversation
  */
 
-// Self-hosted Montserrat (variable weight axis). Bundled woff2 is emitted as a
+// Self-hosted Manrope (variable weight axis, the CI canon sans). Bundled woff2 is emitted as a
 // same-origin asset by Vite, so it loads under the app's strict CSP
 // (font-src 'self' data:) with NO Google Fonts / CDN request. Imported before
 // styles.css so the @font-face rules register ahead of the token layer that
-// references the "Montserrat Variable" family via --font-sans.
-import '@fontsource-variable/montserrat';
+// references the "Manrope Variable" family via --font-sans.
+import '@fontsource-variable/manrope';
 
 import './ui/styles.css';
 
