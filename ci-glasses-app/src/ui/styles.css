@@ -10,15 +10,19 @@
 /**
  * Canonical shadcn token layer (alias).
  *
- * Source of truth: CI-Hub/packages/frontend/src/styles/globals.css (authored in
- * oklch). This HUD is a dark, offline surface, so it carries the CI-Hub **dark**
- * palette. The bespoke --color-* variables below alias onto these canon names
- * where the value is identical, so the HUD consumes canonical tokens (--primary,
- * --accent, …) while every existing rule keeps working unchanged. Teal values
- * are exactly those introduced in the first-wave commit (--primary #abd4d8).
+ * Source of truth: @companionintelligence/tokens (CI-Common styles/tokens/src/tokens.json —
+ * the ONE hand-edited token file; CI-Hub imports the same package). Its tokens.css is
+ * imported first, so this HUD — a dark, offline, hardware-constrained surface (G2
+ * MicroLED) — starts from the canon and overrides only what the panel needs. The
+ * bespoke --color-* variables below alias onto the canon names, so the HUD consumes
+ * canonical tokens (--primary, --accent, …) while every existing rule keeps working.
+ * --primary is the canon sage #c5e8dc; the #abd4d8 teal was retired at tokens v0.3.0.
  *
  * oklch values carry an inline hex comment for reviewer legibility.
  */
+/* the canon token layer (all modes); this surface is dark-only — see the .dark note below */
+@import "@companionintelligence/tokens/tokens.css";
+
 :root {
   --background: oklch(0.1901 0.0321 234.379); /* #041620 */
   --foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
@@ -26,7 +30,7 @@
   --card-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
   --popover: oklch(0.2394 0.0375 233.156); /* #0a222e */
   --popover-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
-  --primary: #c5e8dc;
+  --primary: #c5e8dc; /* canon dark primary (sage) */
   --primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
   --secondary: oklch(0.2394 0.0375 233.156); /* #0a222e */
   --secondary-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
@@ -46,7 +50,7 @@
   --chart-5: oklch(0.4775 0.0615 204.345); /* #2c676d */
   --sidebar: oklch(0.1901 0.0321 234.379); /* #041620 */
   --sidebar-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --sidebar-primary: oklch(0.8420 0.0434 203.701); /* #abd4d8 */
+  --sidebar-primary: var(--primary); /* tracks --primary since tokens v0.3.0 */
   --sidebar-primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
   --sidebar-accent: oklch(0.2799 0.0408 260.329); /* #1d293d */
   --sidebar-accent-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
@@ -64,10 +68,10 @@
   --color-border:       #262626;
   --color-border-hi:    #353535;
 
-  /* CI canonical teal (brand override, owner-approved) — dark HUD --primary #abd4d8.
+  /* CI canon primary (dark HUD): sage #c5e8dc via --primary; #abd4d8 was retired at tokens v0.3.0.
      These alias onto the canon token layer above: the accent IS the dark
      --primary, and its foreground IS --primary-foreground (both #041620). */
-  --color-accent:       var(--primary);              /* #abd4d8 */
+  --color-accent:       var(--primary);              /* #c5e8dc */
   --color-accent-fg:    var(--primary-foreground);   /* #041620 */
   --color-accent-soft:  rgba(171, 212, 216, 0.18);
   --color-accent-dim:   #5c8f94;
@@ -84,10 +88,10 @@
   --color-warning:      #ffba3a;
   --color-success:      var(--color-accent);
 
-  /* Type system — Montserrat per CI canonical style guide, with system fallback.
-     "Montserrat Variable" is the family @fontsource-variable/montserrat registers
-     (see Main.ts import); "Montserrat" retained for a statically-installed fallback. */
-  --font-sans:  "Montserrat Variable", "Montserrat", "Inter", -apple-system,
+  /* Type system — Manrope per CI canonical style guide, with system fallback.
+     "Manrope Variable" is the family @fontsource-variable/manrope registers
+     (see Main.ts import); "Manrope" retained for a statically-installed fallback. */
+  --font-sans:  "Manrope Variable", "Manrope", "Inter", -apple-system,
                 BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono:  "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas,
                 monospace;

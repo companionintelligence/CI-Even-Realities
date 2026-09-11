@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
  * Theme/token contract for the CI Companion HUD surface.
  *
  * The HUD is dark-only and must ship the Companion Intelligence canonical
- * `--primary` teal (#abd4d8 on the dark surface, the CI dark-HUD primary).
+ * `--primary` — the canon dark primary from @companionintelligence/tokens (sage #c5e8dc;
+ * the #abd4d8 teal was retired at tokens v0.3.0 and this test used to pin it).
  * This guards the token contract that the README "Interface" gallery documents;
  * the repo-wide canon lint gate (scripts/lint-canon.mjs + style-canon-lint.yml)
  * covers the full palette in CI.
@@ -15,10 +16,11 @@ import { resolve } from 'node:path';
 const css = readFileSync(resolve('src/ui/styles.css'), 'utf8');
 
 describe('HUD theme tokens', () => {
-  it('defines the CI canonical --primary teal (#abd4d8)', () => {
-    // The token is authored as oklch with an authoritative hex comment.
-    expect(css).toMatch(/--primary:\s*oklch\([^)]*203\.701[^)]*\);/);
-    expect(css).toMatch(/--primary:[^;]*;\s*\/\*\s*#abd4d8\s*\*\//i);
+  it('defines the canon dark --primary from @companionintelligence/tokens', () => {
+    const tokens = JSON.parse(readFileSync(new URL('../../../node_modules/@companionintelligence/tokens/src/tokens.json', import.meta.url), 'utf8'));
+    const m = css.match(/--primary:\s*(#[0-9a-fA-F]{6})/);
+    expect(m, 'styles.css declares --primary as hex').not.toBeNull();
+    expect(m![1].toLowerCase()).toBe(tokens.dark.primary.hex.toLowerCase());
   });
 
   it('aliases the accent onto the canonical --primary token', () => {

@@ -15,11 +15,14 @@
     "pack:ehpk": "npm run build && evenhub pack app.json dist --output ci-companion.ehpk",
     "pack:check": "npm run build && evenhub pack app.json dist --output ci-companion.ehpk --check",
     "qr": "evenhub qr --port 5173",
-    "simulator": "evenhub-simulator http://localhost:5173/"
+    "simulator": "evenhub-simulator http://localhost:5173/",
+    "lint:canon": "ci-lint-canon . && node scripts/sync-brand.mjs --check",
+    "brand:sync": "node scripts/sync-brand.mjs"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.10",
-    "@fontsource-variable/montserrat": "^5.2.8"
+    "@companionintelligence/tokens": "^1.0.0",
+    "@fontsource-variable/manrope": "^5.2.0"
   },
   "devDependencies": {
     "@evenrealities/evenhub-cli": "^0.1.13",
@@ -30,6 +33,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.60.0",
     "vite": "^8.0.14",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "@companionintelligence/config": "^1.0.0",
+    "@companionintelligence/assets": "^1.0.0"
   }
 }
