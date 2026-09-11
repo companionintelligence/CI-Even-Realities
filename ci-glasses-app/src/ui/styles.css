@@ -68,7 +68,7 @@
   --color-border:       #262626;
   --color-border-hi:    #353535;
 
-  /* CI canonical teal (brand override, owner-approved) — dark HUD --primary #abd4d8.
+  /* CI canon primary (dark HUD): sage #c5e8dc via --primary; #abd4d8 was retired at tokens v0.3.0.
      These alias onto the canon token layer above: the accent IS the dark
      --primary, and its foreground IS --primary-foreground (both #041620). */
   --color-accent:       var(--primary);              /* #c5e8dc */
