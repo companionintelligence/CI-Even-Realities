@@ -17,7 +17,11 @@ const css = readFileSync(resolve('src/ui/styles.css'), 'utf8');
 
 describe('HUD theme tokens', () => {
   it('defines the canon dark --primary from @companionintelligence/tokens', () => {
-    const tokens = JSON.parse(readFileSync(new URL('../../../node_modules/@companionintelligence/tokens/src/tokens.json', import.meta.url), 'utf8'));
+    // Resolve via the package root (not `new URL(..., import.meta.url)`) — under
+    // vitest's jsdom environment the global URL constructor re-bases relative
+    // URLs onto jsdom's document location instead of the file: base, so the
+    // import.meta.url form silently resolves to an http: URL here.
+    const tokens = JSON.parse(readFileSync(resolve('node_modules/@companionintelligence/tokens/src/tokens.json'), 'utf8'));
     const m = css.match(/--primary:\s*(#[0-9a-fA-F]{6})/);
     expect(m, 'styles.css declares --primary as hex').not.toBeNull();
     expect(m![1].toLowerCase()).toBe(tokens.dark.primary.hex.toLowerCase());
