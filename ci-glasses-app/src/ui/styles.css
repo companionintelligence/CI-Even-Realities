@@ -413,7 +413,7 @@ textarea:focus-visible {
 }
 .message--user {
   align-self: flex-end;
-  background: linear-gradient(180deg, #abd4d8 0%, #5c8f94 100%);
+  background: linear-gradient(180deg, #c5e8dc 0%, #5c8f94 100%);
   color: #041620;
   border-bottom-right-radius: 4px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset;
@@ -644,7 +644,7 @@ textarea:focus-visible {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:not(:disabled):active { transform: scale(0.98); }
 .btn--primary {
-  background: linear-gradient(180deg, #abd4d8, #5c8f94);
+  background: linear-gradient(180deg, #c5e8dc, #5c8f94);
   color: #041620;
   font-weight: 600;
 }

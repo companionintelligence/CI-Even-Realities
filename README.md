@@ -14,7 +14,7 @@ For the full plan and design see [`planning.md`](planning.md) and [`architecture
 
 The CI Companion phone WebView — the control surface paired with the G2 glasses. Voice-first: tap the mic or long-press the G2 touchbar, and answers stream onto the glasses HUD (mirrored in the **Glasses display** preview).
 
-It ships on the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/style) — teal `--primary` (`#abd4d8`), Montserrat. As a heads-up display it is **dark-only**: a single surface pinned to `color-scheme: dark`, tuned for the Even Realities G2 phosphor aesthetic. There is no light theme by design, so every screen below is captured on the one dark surface.
+It ships on the [Companion Intelligence design system](https://github.com/companionintelligence/CI-Common/tree/main/styles) — sage `--primary` (`#c5e8dc`), Manrope. As a heads-up display it is **dark-only**: a single surface pinned to `color-scheme: dark`, tuned for the Even Realities G2 phosphor aesthetic. There is no light theme by design, so every screen below is captured on the one dark surface.
 
 The WebView has two tabs — **Chat** and **Settings** — plus two HUD overlays (permission prompts, mid-stream frames) that only render inside the native Even Hub runtime. Screens below are captured headlessly from the production Vite build (`npm run build` + serve), so they reflect exactly what ships.
 
@@ -26,9 +26,9 @@ The default tab and landing surface. Shows the CI Companion mark, quick-prompt s
 
 ### Settings
 
-The configuration tab. The **Account** card offers **Sign in with Companion Intelligence** (CI-Portal OIDC) and shows the signed-in identity; the **CI-Hub** card is a one-tap quick-connect (Ollama / Hermes / OpenClaw) derived from your Hub base URL. Below them, the **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming, followed by the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Token/session state persists through device-backed bridge storage (localStorage in the simulator). The teal `--primary` accent marks the active tab and the selected backend card.
+The configuration tab. The **Account** card offers **Sign in with Companion Intelligence** (CI-Portal OIDC) and shows the signed-in identity; the **CI-Hub** card is a one-tap quick-connect (Ollama / Hermes / OpenClaw) derived from your Hub base URL. Below them, the **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming, followed by the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Token/session state persists through device-backed bridge storage (localStorage in the simulator). The sage `--primary` accent marks the active tab and the selected backend card.
 
-<img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: AI Backend kind picker with the CI teal accent on the selected card, plus System Prompt, STT, TTS, and Reset sections" width="380">
+<img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: AI Backend kind picker with the CI sage accent on the selected card, plus System Prompt, STT, TTS, and Reset sections" width="380">
 
 ### HUD overlays (native runtime only)
 
