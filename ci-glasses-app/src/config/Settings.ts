@@ -81,7 +81,7 @@ export interface BackendConfig {
    * fallbacks derive from this. Default is the production Portal issuer.
    */
   oidcIssuer: string;
-  /** OIDC public client id. Defaults to the pre-registered `ci-hub` client. */
+  /** OIDC public client id. Defaults to the dedicated pre-registered `ci-even` client. */
   oidcClientId: string;
   /** OIDC scopes; `offline_access` is required for refresh tokens. */
   oidcScope: string;

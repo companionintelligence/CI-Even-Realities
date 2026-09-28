@@ -156,7 +156,7 @@ Open the **Settings** tab. Two fast paths:
   (Authorization-Code + PKCE). The returned access token is used for backend
   calls and refreshes itself — no API key to manage. Issuer / client / scope are
   configurable under *Advanced* (defaults: issuer `https://hub.ci.computer/api/auth`,
-  client `ci-hub`).
+  client `ci-even`).
 - **CI-Hub quick-connect** — set your Hub base URL, then tap **Ollama**, **Hermes**,
   or **OpenClaw** to fill the backend fields with the standardized CI-Hub endpoints.
 

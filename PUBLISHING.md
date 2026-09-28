@@ -84,7 +84,7 @@ replacing the static API key. Tokens persist through device-backed bridge storag
 (localStorage in simulator/browser) and auto-refresh.
 
 - Issuer / client id / scope are configurable (Account → Advanced). Defaults:
-  issuer `https://hub.ci.computer/api/auth`, client `ci-hub`, scope
+  issuer `https://hub.ci.computer/api/auth`, client `ci-even`, scope
   `openid email profile offline_access`.
 - API-key mode still works; a fresh install defaults to it, so nothing breaks for
   users who don't sign in.
