@@ -6,6 +6,17 @@ Changelog](https://keepachangelog.com/); versions refer to `ci-glasses-app/app.j
 ships as source/Docker image, not through the portal, and is versioned separately
 via its own `package.json` / Docker tag.
 
+## Unreleased
+
+### Added
+
+- **`er-connect` Quick Connect generator** — the setup/connect page now has
+  a live config generator: type your Hub host once and it renders the exact
+  Backend URL / Backend Kind / Model for all five CI-Hub presets (Assistant,
+  Ollama, Hermes, OpenClaw, Memory), each with a copy button. Computed
+  client-side, mirroring `ci-glasses-app/src/config/HubPresets.ts`'s
+  `hubHost()` normalization and preset table exactly — no network calls.
+
 ## [0.5.0] — Even Hub SDK 0.0.16, native long-press, CI-Server hardening
 
 ### Changed
