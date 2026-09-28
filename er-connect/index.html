@@ -266,6 +266,55 @@
   .kind-card .kind-name { font-weight: 700; font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent); }
   .kind-card .kind-desc { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 
+  .quick-connect { margin-bottom: 20px; }
+  .qc-label {
+    display: block;
+    color: var(--text-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .qc-input {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+  }
+  .qc-input:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .qc-input::placeholder { color: var(--text-muted); }
+
+  .qc-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .qc-card { display: flex; flex-direction: column; gap: 10px; }
+  .qc-row + .qc-row { margin-top: 0; }
+  .qc-field-label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .qc-field-value { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .qc-field-value code {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--surface-alt);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+  }
+
   .note {
     background: var(--surface-alt);
     border: 1px solid var(--border-hi);
@@ -303,6 +352,7 @@
   </div>
   <nav class="site">
     <a href="#connect">Connect</a>
+    <a href="#quick-connect">Quick Connect</a>
     <a href="#backends">Backends</a>
     <a href="https://github.com/companionintelligence/CI-Even-Realities">GitHub</a>
   </nav>
@@ -362,6 +412,34 @@
       <p><strong>Ring:</strong> tap = next page / deny prompt · double-tap =
         clear conversation / approve prompt.</p>
     </div>
+  </div>
+</section>
+
+<section class="block" id="quick-connect">
+  <h2>Generate your CI-Hub config</h2>
+  <p class="section-lede">
+    Type your Hub's host once — these are the exact values CI-Hub
+    quick-connect fills in Settings when you tap a service there. Computed
+    entirely in your browser; nothing here is sent anywhere.
+  </p>
+
+  <div class="quick-connect">
+    <label class="qc-label" for="hub-host">Hub host</label>
+    <input
+      id="hub-host"
+      class="qc-input"
+      type="text"
+      placeholder="ci-hub.local or 192.168.1.50"
+      autocomplete="off"
+      spellcheck="false"
+    />
+  </div>
+
+  <div class="kind-grid qc-grid" id="qc-results"></div>
+
+  <div class="note">
+    Every service routes through the companion <strong>agent-hub</strong>
+    (default port <code>8787</code>) — one URL for chat <em>and</em> voice.
   </div>
 </section>
 
@@ -477,23 +555,93 @@
 </footer>
 
 <script>
-  document.querySelectorAll('.copy-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var value = btn.getAttribute('data-copy') || '';
-      var done = function () {
-        var original = btn.textContent;
-        btn.textContent = 'Copied';
-        btn.classList.add('copied');
-        setTimeout(function () {
-          btn.textContent = original;
-          btn.classList.remove('copied');
-        }, 1200);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(value).then(done).catch(function () {});
-      }
+  function wireCopyButtons(root) {
+    root.querySelectorAll('.copy-btn:not([data-wired])').forEach(function (btn) {
+      btn.setAttribute('data-wired', '1');
+      btn.addEventListener('click', function () {
+        var value = btn.getAttribute('data-copy') || '';
+        var done = function () {
+          var original = btn.textContent;
+          btn.textContent = 'Copied';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.classList.remove('copied');
+          }, 1200);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value).then(done).catch(function () {});
+        }
+      });
     });
-  });
+  }
+  wireCopyButtons(document);
+
+  // Quick-connect generator. Mirrors ci-glasses-app/src/config/HubPresets.ts
+  // (hubHost() normalization + the 5 standard service presets) so these
+  // values always match what CI-Hub quick-connect fills in Settings — if
+  // that file's presets change, update PRESETS below to match.
+  (function () {
+    var HUB_PORT = 8787;
+    var PRESETS = [
+      { label: 'Assistant', kind: 'auto', model: 'ci-companion' },
+      { label: 'Ollama', kind: 'local-llm', model: 'llama3.2' },
+      { label: 'Hermes', kind: 'hermes', model: 'hermes-agent' },
+      { label: 'OpenClaw', kind: 'openclaw', model: 'openclaw/default' },
+      { label: 'Memory', kind: 'memory', model: 'ci-memory' },
+    ];
+
+    function hubHost(raw) {
+      var trimmed = (raw || '').trim().replace(/\/+$/, '');
+      if (!trimmed) return 'http://localhost';
+      var withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+        ? trimmed
+        : 'http://' + trimmed;
+      try {
+        var u = new URL(withScheme);
+        return u.protocol + '//' + u.hostname;
+      } catch (e) {
+        return 'http://localhost';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function qcRow(label, value) {
+      var safe = escapeHtml(value);
+      return (
+        '<div class="qc-row"><span class="qc-field-label">' + label + '</span>' +
+        '<span class="qc-field-value"><code title="' + safe + '">' + safe + '</code>' +
+        '<button class="copy-btn" data-copy="' + safe + '">Copy</button></span></div>'
+      );
+    }
+
+    function render() {
+      var input = document.getElementById('hub-host');
+      var out = document.getElementById('qc-results');
+      if (!input || !out) return;
+      var agentHubUrl = hubHost(input.value) + ':' + HUB_PORT;
+      out.innerHTML = PRESETS.map(function (p) {
+        return (
+          '<div class="kind-card qc-card">' +
+          '<div class="kind-name">' + p.label + '</div>' +
+          qcRow('Backend URL', agentHubUrl) +
+          qcRow('Backend Kind', p.kind) +
+          qcRow('Model', p.model) +
+          '</div>'
+        );
+      }).join('');
+      wireCopyButtons(out);
+    }
+
+    var hostInput = document.getElementById('hub-host');
+    if (hostInput) hostInput.addEventListener('input', render);
+    render();
+  })();
 </script>
 
 </body>
