@@ -1,0 +1,18 @@
+/*
+ * Pulls in Tailwind + the canonical CI tokens (@companionintelligence/ui owns
+ * `@import "tailwindcss"` and `@plugin "tailwindcss-animate"`), then scans the
+ * installed kit's compiled bundle plus this app's own source so every
+ * utility class either of them uses actually gets generated.
+ */
+@import '@companionintelligence/ui/styles.css';
+
+@source '../node_modules/@companionintelligence/ui/dist/index.js';
+@source './';
+
+html {
+  font-size: 17px;
+}
+
+body {
+  min-height: 100vh;
+}

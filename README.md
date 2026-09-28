@@ -2,7 +2,7 @@
 
 > **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
 
-For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect guide](https://er.ci.computer) ([source](er-connect/)) walks through installing the app and connecting a backend in three steps, plus a live CI-Hub config generator.
+For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect app](https://er.ci.computer) ([source](er-connect/)) walks through installing the app, signing in with Companion Intelligence, and connecting a CI-Hub in three steps.
 
 [![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.16-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
