@@ -10,23 +10,21 @@ via its own `package.json` / Docker tag.
 
 ### Added
 
-- **`er-connect` Quick Connect generator** — the setup/connect page now has
-  a live config generator: type your Hub host once and it renders the exact
-  Backend URL / Backend Kind / Model for all five CI-Hub presets (Assistant,
-  Ollama, Hermes, OpenClaw, Memory), each with a copy button. Computed
-  client-side, mirroring `ci-glasses-app/src/config/HubPresets.ts`'s
-  `hubHost()` normalization and preset table exactly — no network calls.
-- **`er-connect` "How it works" diagram + real screenshots** — a
-  Mermaid-rendered flow diagram (glasses → phone → backend → AI) and a "See
-  it in action" section using the current-brand Chat/Settings screenshots
-  (the same ones the main README uses). `_headers`' CSP now allows
-  `cdn.jsdelivr.net` in `script-src` for the Mermaid library.
+- **`er-connect` rebuilt as a real Vite + React app** on the canonical
+  `@companionintelligence/ui` component kit and `@companionintelligence/tokens`
+  (real CI phthalo/sage palette and logo mark, instead of hand-approximated
+  hex values — see `er-connect/README.md`'s "Why a build step"). IA
+  redesigned around an `AppCard` + `QrCode` install step, a `Stepper`
+  (Install → Connect → Talk) carrying the CI-Portal sign-in (Authorization
+  Code + PKCE, mirroring `ci-glasses-app/src/auth/OidcClient.ts`) and
+  CI-Hub connect probe, with auto-reconnect on return visits
+  (`localStorage`) — and a tabbed `Dialog` "Help" modal holding everything
+  explanatory (how it works, screenshots, manual backend config, supported
+  Backend Kinds, troubleshooting) out of the main flow. Needs a CI-Portal
+  `PUBLIC_CLIENTS` entry for `ci-er-connect` before sign-in works end to
+  end; see `er-connect/README.md`.
 - **Mermaid diagrams in docs** — the main README's ASCII architecture
-  diagram is now a Mermaid flowchart (GitHub renders it inline); `er-connect/README.md`
-  gained a deploy-decision flowchart (Option A/B/C/D).
-- **`er-connect/README.md` Option D** — a complete `wrangler` CLI command
-  sequence (login → create project → deploy → attach custom domain) for
-  deploying straight from a terminal, no Cloudflare dashboard clicking.
+  diagram is now a Mermaid flowchart (GitHub renders it inline).
 - **`docs/ci-pipeline.md`** (new, hand-maintained) — documents what each
   GitHub Actions workflow does, with a Mermaid diagram and exact `gh workflow
   run` commands. Kept separate from the generated `docs/CI.md`, which says
@@ -39,6 +37,17 @@ via its own `package.json` / Docker tag.
   and visually mismatch the current app. Added a pre-flight checklist item
   and a `ROADMAP.md` note; recapturing them needs simulator/device access
   this session doesn't have.
+- **`er-connect` is deployed and live** at `er.ci.computer`. Turned out
+  `wrangler pages project create`/`deploy` no longer create or target
+  classic Cloudflare Pages projects (as of wrangler 4.143.0) — they're
+  Cloudflare Workers with static assets now, and `wrangler pages deploy`
+  fails against one (`The Pages project ... does not exist`). Switched to
+  plain `wrangler deploy`, reading the Worker name, assets directory, and
+  the `er.ci.computer` custom-domain route from a committed
+  `er-connect/wrangler.jsonc`; updated `deploy-er-connect.yml` to match.
+  `er-connect/README.md`'s four-option deploy flowchart is gone, replaced
+  with the two paths that actually apply now (local `wrangler deploy`, or
+  the GitHub Actions workflow).
 
 ## [0.5.0] — Even Hub SDK 0.0.16, native long-press, CI-Server hardening
 

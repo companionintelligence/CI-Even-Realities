@@ -1,156 +1,147 @@
 # er-connect
 
-The public "Setup & Connect" page for **CI Companion**, meant to be served at
-**er.ci.computer**. Plain static HTML/CSS/JS — no build step, no framework,
-no dependency on the private `@companionintelligence/*` packages (the canon
-color tokens are hardcoded from `ci-glasses-app/src/ui/styles.css`, since this
-site has no npm install step of its own). Includes a client-side "Quick
-Connect" config generator (mirrors `ci-glasses-app/src/config/HubPresets.ts`),
-a Mermaid "how it works" diagram, and a "Sign in with Companion Intelligence"
-flow (mirrors `ci-glasses-app/src/auth/OidcClient.ts`) that remembers your Hub
-host and reconnects automatically on your next visit.
+The public "Setup & Connect" app for **CI Companion**, live at
+**[er.ci.computer](https://er.ci.computer)**. A real Vite + React app now —
+not a hand-styled static page — built on the canonical
+[`@companionintelligence/ui`](https://github.com/companionintelligence/CI-Common/tree/main/packages/ui)
+component kit and [`@companionintelligence/tokens`](https://github.com/companionintelligence/CI-Common/tree/main/styles/tokens),
+so it renders the real CI phthalo/sage palette, the real logo mark, and the
+same Button/Card/Dialog/Stepper/StatusPill primitives every other CI surface
+uses, instead of a hand-approximated copy.
 
-![Preview of the er-connect page: hero, backend-kind chips, and the "how it works" diagram](assets/preview.png)
+- **Install** — an `AppCard` for CI Companion (Even Hub store link) plus a
+  `QrCode` to scan on your phone, or sideload the latest `.ehpk` from GitHub.
+- **Sign in** — real Authorization Code + PKCE flow against CI-Portal
+  (`https://hub.ci.computer/api/auth`), mirroring
+  `ci-glasses-app/src/auth/OidcClient.ts`.
+- **Connect your Hub** — a `Stepper` walks Install → Connect → Talk. Once
+  you've signed in and entered a Hub host, both are remembered
+  (`localStorage`) and reconnect automatically on your next visit.
+- **Help** — everything explanatory (how it works, screenshots, manual
+  backend config, supported Backend Kinds, troubleshooting) lives behind a
+  `Dialog` with tabs, out of the main flow.
 
-## Sign in & auto-connect
+## Why a build step
 
-The Quick Connect section (`#quick-connect`) has a "Sign in with Companion
-Intelligence" button that runs a real Authorization Code + PKCE flow against
-CI-Portal (`https://hub.ci.computer/api/auth`). Nothing but the OIDC exchange
-and the Hub-reachability check ever leaves the browser.
+This used to be plain HTML/CSS/JS with hand-copied hex values standing in
+for the real canon palette — `--bg: #060606` where the real dark background
+is `#041620`, a teal-black, not near-black. CI-Common's own governance
+(`styles/UI-STYLE-GUIDE.md` §11) calls that exact pattern the drift its
+token bundle exists to prevent: *"Consume the package; never copy a token
+block... A hand-copied block is exactly the drift the gate exists to
+catch."* Pulling in the real `@companionintelligence/ui` kit means a real
+npm install against the private `@companionintelligence` registry, and
+Tailwind v4 needs a build step to generate its utility classes — so this is
+now a proper app, not a static file.
 
-Once you've signed in and entered a Hub host, both are remembered in
-`localStorage` — reload the page and it signs you back in and reconnects with
-no clicks. Sign-in is optional: the Quick Connect generator below it works
-without ever signing in.
-
-### Prerequisite: register the OIDC client
-
-`app.js` uses `client_id: 'ci-er-connect'`. CI-Portal's `PUBLIC_CLIENTS`
-registry must have an entry for it with `redirect_uri` set to this page's
-deployed URL (e.g. `https://er.ci.computer/`) — that's a CI-Portal-side
-change, not something this repo can do on its own. Until it's registered,
-sign-in will fail at the authorize step with an invalid-client error from the
-IdP.
-
-## Preview locally
-
-```bash
-npx serve er-connect
-# or just open er-connect/index.html directly in a browser
-```
-
-## Deploy — no Claude session has Cloudflare credentials, so this needs a human
-
-Neither this repo's CI nor any Claude session working in it currently has
-Cloudflare access (no API token, no connected connector). Someone with access
-to the Cloudflare account that owns the `ci.computer` zone needs to do a
-**one-time** setup. Pick one:
-
-```mermaid
-flowchart TD
-    start{"How do you want<br/>to deploy?"}
-    start -->|"Just get it live,<br/>auto-redeploy on push"| a["Option A<br/>Cloudflare dashboard<br/>Connect to Git"]
-    start -->|"I'm comfortable<br/>in a terminal"| d["Option D<br/>wrangler CLI<br/>on your Mac"]
-    start -->|"Keep deploys manual,<br/>like this repo's CI"| b["Option B<br/>GitHub Actions<br/>workflow_dispatch"]
-    start -->|"Let Claude drive it<br/>directly next time"| c["Option C<br/>connect the Cloudflare<br/>connector"]
-
-    a --> live(["er.ci.computer live"])
-    d --> live
-    b --> live
-    c -.->|"if its tools cover<br/>Pages + DNS"| live
-```
-
-### Option A — Cloudflare's own Git integration (simplest, recommended)
-
-No GitHub secrets, no CLI. Cloudflare builds and deploys straight from the
-repo on every push.
-
-1. Go to the [Cloudflare dashboard](https://dash.cloudflare.com/) → **Workers
-   & Pages** → **Create** → **Pages** → **Connect to Git**.
-2. Authorize/select the `companionintelligence/CI-Even-Realities` GitHub repo.
-3. Build settings:
-   - **Production branch**: `main`
-   - **Build command**: *(leave empty — it's static)*
-   - **Build output directory**: `er-connect`
-4. Click **Save and Deploy**. Cloudflare gives the project a URL like
-   `ci-er-connect.pages.dev` — confirm the page loads there first.
-5. Open the project → **Custom domains** → **Set up a custom domain** →
-   enter `er.ci.computer` → follow the prompt. Cloudflare adds the DNS
-   record to the `ci.computer` zone automatically (the zone must already be
-   on this same Cloudflare account).
-
-Done — `er.ci.computer` goes live, and every future push to `main` that
-touches `er-connect/` redeploys it automatically.
-
-### Option B — the GitHub Actions workflow already in this repo
-
-Use this instead if you'd rather keep deploys manually triggered, consistent
-with this repo's [CI cost-gating policy](../docs/CI.md) (Option A auto-deploys
-on every push; this one only runs when dispatched).
-
-1. **Repo secrets** (repo Settings → Secrets and variables → Actions):
-   - `CLOUDFLARE_API_TOKEN` — create at My Profile → API Tokens → **Create
-     Token** → "Edit Cloudflare Workers" template (or a custom token with
-     `Account.Cloudflare Pages: Edit`), scoped to the account that owns
-     `ci.computer`.
-   - `CLOUDFLARE_ACCOUNT_ID` — Cloudflare dashboard → Workers & Pages →
-     Overview → right sidebar.
-2. Run the workflow once:
-   ```bash
-   gh workflow run deploy-er-connect.yml --repo companionintelligence/CI-Even-Realities --ref main
-   ```
-   `wrangler pages deploy` creates the `ci-er-connect` Pages project
-   automatically on first run.
-3. **Custom domain** — same dashboard step as Option A #5 above (this part
-   can't be scripted from CI either way — it's always a one-time dashboard
-   action, or `wrangler pages domain add er.ci.computer --project-name=ci-er-connect`
-   for whoever holds the account credentials).
-
-### Option D — wrangler CLI from your Mac (no dashboard clicking at all)
-
-Same end result as Option A, entirely from Terminal. Needs Node.js (`brew
-install node` if you don't have it) and a Cloudflare account with access to
-the `ci.computer` zone.
+## Develop
 
 ```bash
-# 1. Install Cloudflare's CLI
-npm install -g wrangler
-
-# 2. Log in (opens a browser tab once, then remembers you)
-wrangler login
-
-# 3. Get the repo, if you don't already have it locally
-git clone https://github.com/companionintelligence/CI-Even-Realities.git
-cd CI-Even-Realities
-
-# 4. Create the Pages project (one-time)
-wrangler pages project create ci-er-connect --production-branch=main
-
-# 5. Deploy the site
-wrangler pages deploy er-connect --project-name=ci-er-connect
-
-# 6. Attach the custom domain (one-time; the ci.computer zone must already
-#    be on this Cloudflare account)
-wrangler pages domain add er.ci.computer --project-name=ci-er-connect
+cd er-connect
+npm install   # needs a GitHub token with packages:read — see below
+npm run dev   # http://localhost:5174
 ```
 
-`er.ci.computer` is live after step 6. To push a future update by hand, `cd`
-into the repo, `git pull`, and re-run step 5 — that's the whole redeploy.
+### The private registry
 
-### Option C — give a future Claude session Cloudflare access
+`@companionintelligence/ui` and `@companionintelligence/tokens` are private
+packages on GitHub Packages (`npm.pkg.github.com`), per `.npmrc` in this
+directory. `npm install` needs `NODE_AUTH_TOKEN` set to a token with
+`packages:read` for the `companionintelligence` org:
+
+```bash
+NODE_AUTH_TOKEN="$(gh auth token)" npm install
+```
+
+CI does the same with `secrets.GITHUB_TOKEN` (see `.github/workflows/deploy-er-connect.yml`
+and `ci.yml`'s `ci-glasses-app` job, which consumes the same registry the
+same way).
+
+## Build
+
+```bash
+npm run build   # tsc -b && vite build → dist/
+```
+
+`dist/` is what actually gets deployed — `wrangler.jsonc`'s
+`assets.directory` points at it. `public/_headers` (security headers, CSP)
+is copied into `dist/` verbatim by Vite on every build; never edit
+`dist/_headers` directly.
+
+## Deploy
+
+**Live** at <https://er.ci.computer>, deployed as a **Cloudflare Worker with
+static assets** — not a classic Cloudflare Pages project, and that wasn't a
+choice, it's what `wrangler` (4.143.0, as of this writing) does by default
+now. `wrangler pages project create ci-er-connect` produced a Worker (with
+`assets.directory` set) rather than an entry in `wrangler pages project
+list`; the CLI itself says so — "Workers are the recommended way to deploy
+all new projects" — and even offers a `--force` flag to opt back into a
+classic Pages project, which we did not use. `wrangler pages deploy` does
+not work against it (`The Pages project "ci-er-connect" does not exist`) —
+everything below uses plain `wrangler deploy`, which reads the Worker name,
+the `dist/` assets directory, and the `er.ci.computer` custom-domain route
+straight from `wrangler.jsonc`, rather than from CLI flags.
+
+Worth knowing: the rest of `ci.computer`'s sites (`ci-virtual-home`,
+`time-machine`, `ci-os-hub-docs`, `ci-pebble`, `avatars`,
+`ci-public-website`, `spellbook` — checked via `wrangler pages project
+list` against this same account) are all still classic Pages projects on
+`*.pages.dev` with dashboard-managed custom domains. This site is the
+current outlier, forced by what the CLI does today rather than chosen for
+consistency with its siblings.
+
+### Redeploy
+
+```bash
+cd er-connect
+npm run build
+npx wrangler deploy
+```
+
+Needs a Cloudflare account with access to `ci.computer` — run `npx wrangler
+login` first if not already authenticated (opens a browser tab once).
+
+### Or via GitHub Actions
+
+[`deploy-er-connect.yml`](../.github/workflows/deploy-er-connect.yml) installs,
+builds, and runs the same `wrangler deploy` from CI, manually triggered:
+
+```bash
+gh workflow run deploy-er-connect.yml --repo companionintelligence/CI-Even-Realities --ref main
+```
+
+Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set as repo secrets
+(Settings → Secrets and variables → Actions): the token from My Profile →
+API Tokens → **Create Token** → "Edit Cloudflare Workers" template, scoped
+to the account that owns `ci.computer`; the account ID from the dashboard
+sidebar under Workers & Pages → Overview. `NODE_AUTH_TOKEN` for the private
+registry install comes from the workflow's own `secrets.GITHUB_TOKEN` — no
+extra secret needed for that part.
+
+### Give a future Claude session Cloudflare access instead
 
 This Claude Code org has a **"Cloudflare Developer Platform"** connector
-available (not yet connected). Connecting it at
+available. Connecting it at
 [claude.ai/customize/connectors](https://claude.ai/customize/connectors) and
-starting a new session would let Claude call the Cloudflare API directly —
-worth trying, though its tool surface leans toward Workers/KV and it isn't
-confirmed to cover Pages deploys or DNS zone management. If it doesn't, fall
-back to Option A or B.
+starting a new session would let Claude run `npm run build && wrangler
+deploy` (or call the API directly) without a human in the loop for future
+redeploys.
+
+## Prerequisite: register the OIDC client
+
+`src/auth/oidc.ts` uses `client_id: 'ci-er-connect'`. CI-Portal's
+`PUBLIC_CLIENTS` registry needs an entry for it with `redirect_uri` set to
+this app's deployed URL (`https://er.ci.computer/`) — that's a CI-Portal-side
+change, not something this repo can do on its own. Until it's registered,
+sign-in will fail at the authorize step with an invalid-client error from
+the IdP.
 
 ## Files
 
-- `index.html` — the whole page: content, inline styles, the "how it works" Mermaid diagram, the Quick Connect generator, and the sign-in UI.
-- `app.js` — page chrome (Mermaid render, copy buttons, Quick Connect generator) plus the CI-Portal PKCE sign-in flow and Hub-reachability probe.
-- `assets/` — app icon (from `ci-glasses-app/assets/icons/`), the Chat/Settings screenshots (from `docs/ui/`, the same current-brand captures the main README uses), and `preview.png` (a fresh full-viewport capture of this page, for this README).
-- `_headers` — Cloudflare Pages security headers (CSP, frame/referrer policy; `script-src` allows `cdn.jsdelivr.net` for the Mermaid library, `connect-src` is open since the Hub host and CI-Portal are both cross-origin and user/environment-dependent).
+- `src/App.tsx` — page layout: header, hero, the Install/Connect/Talk `Stepper`, footer, `HelpDialog`.
+- `src/components/HelpDialog.tsx` — the tabbed help modal (how it works, screenshots, manual config, backends, troubleshooting).
+- `src/auth/` — `pkce.ts` (RFC 7636 helpers), `oidc.ts` (the CI-Portal Authorization Code + PKCE flow, mirrors `ci-glasses-app/src/auth/OidcClient.ts`), `useConnect.ts` (the React hook wiring sign-in + Hub-connect lifecycle together, including auto-reconnect on boot).
+- `src/hub/connect.ts` — CI-Hub host normalization and the `agent-hub` reachability probe, mirrors `ci-glasses-app/src/config/HubPresets.ts`.
+- `public/` — favicon, screenshots (from `docs/ui/`), and `_headers` — copied into `dist/` verbatim on build.
+- `wrangler.jsonc` — the Worker config: name (`ci-er-connect`), `dist/` as the assets directory, and the `er.ci.computer` custom-domain route.

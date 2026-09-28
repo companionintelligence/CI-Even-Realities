@@ -1,7 +1,15 @@
-name: Deploy er-connect (Cloudflare Pages)
+name: Deploy er-connect (Cloudflare Workers static assets)
 
 # Gated like ci.yml — see docs/CI.md. Dispatch manually:
 #   gh workflow run deploy-er-connect.yml --repo companionintelligence/CI-Even-Realities --ref main
+#
+# ci-er-connect is a Worker with static assets (er-connect/wrangler.jsonc),
+# not a classic Cloudflare Pages project — `wrangler pages deploy` will fail
+# against it with "The Pages project ... does not exist". Deploy with plain
+# `wrangler deploy`, which reads the name/assets(dist/)/routes straight from
+# that config file instead of CLI flags. er-connect is a real Vite + React
+# app now (@companionintelligence/ui), so it needs an install + build step
+# before wrangler can see anything in dist/.
 on:
   workflow_dispatch:
 
@@ -11,16 +19,35 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish er-connect/ to Cloudflare Pages
+    name: Build and publish er-connect/ to Cloudflare
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: er-connect
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish to Cloudflare Pages
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: er-connect/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy er-connect --project-name=ci-er-connect --branch=main
+          workingDirectory: er-connect
+          command: deploy
