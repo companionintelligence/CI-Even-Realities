@@ -5,11 +5,33 @@ The public "Setup & Connect" page for **CI Companion**, meant to be served at
 no dependency on the private `@companionintelligence/*` packages (the canon
 color tokens are hardcoded from `ci-glasses-app/src/ui/styles.css`, since this
 site has no npm install step of its own). Includes a client-side "Quick
-Connect" config generator (mirrors `ci-glasses-app/src/config/HubPresets.ts`)
-and a Mermaid "how it works" diagram — no network calls beyond loading fonts
-and the Mermaid script; nothing you type leaves the visitor's browser.
+Connect" config generator (mirrors `ci-glasses-app/src/config/HubPresets.ts`),
+a Mermaid "how it works" diagram, and a "Sign in with Companion Intelligence"
+flow (mirrors `ci-glasses-app/src/auth/OidcClient.ts`) that remembers your Hub
+host and reconnects automatically on your next visit.
 
 ![Preview of the er-connect page: hero, backend-kind chips, and the "how it works" diagram](assets/preview.png)
+
+## Sign in & auto-connect
+
+The Quick Connect section (`#quick-connect`) has a "Sign in with Companion
+Intelligence" button that runs a real Authorization Code + PKCE flow against
+CI-Portal (`https://hub.ci.computer/api/auth`). Nothing but the OIDC exchange
+and the Hub-reachability check ever leaves the browser.
+
+Once you've signed in and entered a Hub host, both are remembered in
+`localStorage` — reload the page and it signs you back in and reconnects with
+no clicks. Sign-in is optional: the Quick Connect generator below it works
+without ever signing in.
+
+### Prerequisite: register the OIDC client
+
+`app.js` uses `client_id: 'ci-er-connect'`. CI-Portal's `PUBLIC_CLIENTS`
+registry must have an entry for it with `redirect_uri` set to this page's
+deployed URL (e.g. `https://er.ci.computer/`) — that's a CI-Portal-side
+change, not something this repo can do on its own. Until it's registered,
+sign-in will fail at the authorize step with an invalid-client error from the
+IdP.
 
 ## Preview locally
 
@@ -38,8 +60,6 @@ flowchart TD
     b --> live
     c -.->|"if its tools cover<br/>Pages + DNS"| live
 ```
-
-
 
 ### Option A — Cloudflare's own Git integration (simplest, recommended)
 
@@ -130,6 +150,7 @@ back to Option A or B.
 
 ## Files
 
-- `index.html` — the whole page: content, inline styles, the "how it works" Mermaid diagram, the Quick Connect generator, and a copy-to-clipboard helper.
+- `index.html` — the whole page: content, inline styles, the "how it works" Mermaid diagram, the Quick Connect generator, and the sign-in UI.
+- `app.js` — page chrome (Mermaid render, copy buttons, Quick Connect generator) plus the CI-Portal PKCE sign-in flow and Hub-reachability probe.
 - `assets/` — app icon (from `ci-glasses-app/assets/icons/`), the Chat/Settings screenshots (from `docs/ui/`, the same current-brand captures the main README uses), and `preview.png` (a fresh full-viewport capture of this page, for this README).
-- `_headers` — Cloudflare Pages security headers (CSP, frame/referrer policy; `script-src` allows `cdn.jsdelivr.net` for the Mermaid library).
+- `_headers` — Cloudflare Pages security headers (CSP, frame/referrer policy; `script-src` allows `cdn.jsdelivr.net` for the Mermaid library, `connect-src` is open since the Hub host and CI-Portal are both cross-origin and user/environment-dependent).

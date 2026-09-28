@@ -153,6 +153,7 @@
     box-shadow: 0 0 24px var(--accent-glow);
   }
   .btn-primary:hover { filter: brightness(1.05); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
   .btn-ghost {
     background: var(--surface);
     color: var(--text);
@@ -202,7 +203,7 @@
   .card p { margin: 0 0 10px; color: var(--text-soft); font-size: 0.95rem; }
   .card p:last-child { margin-bottom: 0; }
 
-  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .pill-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
   .pill {
     background: var(--surface-alt);
     border: 1px solid var(--border-hi);
@@ -327,6 +328,8 @@
     margin-top: 16px;
   }
   .note strong { color: var(--text); }
+  .note.success { border-left-color: var(--accent); color: var(--text); }
+  .note.error { border-left-color: var(--error); color: var(--text); }
 
   .diagram {
     background: var(--surface);
@@ -460,6 +463,7 @@ flowchart LR
         <span class="pill">OpenClaw</span>
         <span class="pill">Memory</span>
       </div>
+      <p><a href="#quick-connect">Sign in right here</a> instead, and this page remembers your Hub for next time.</p>
     </div>
 
     <div class="card">
@@ -489,12 +493,25 @@ flowchart LR
 </section>
 
 <section class="block" id="quick-connect">
-  <h2>Generate your CI-Hub config</h2>
+  <h2>Sign in &amp; generate your CI-Hub config</h2>
   <p class="section-lede">
-    Type your Hub's host once — these are the exact values CI-Hub
-    quick-connect fills in Settings when you tap a service there. Computed
-    entirely in your browser; nothing here is sent anywhere.
+    Sign in with Companion Intelligence and this page remembers your Hub and
+    reconnects automatically next time you visit — or skip sign-in and just
+    fill in your Hub host below. Everything runs in your browser; the only
+    network calls are to CI-Portal (if you sign in) and to the Hub host you
+    enter (to check it's reachable).
   </p>
+
+  <div class="quick-connect" id="signin-block">
+    <div id="signin-signed-out">
+      <button type="button" class="btn btn-primary" id="signin-btn">Sign in with Companion Intelligence</button>
+    </div>
+    <div id="signin-signed-in" class="pill-row" style="display:none;">
+      <span class="pill accent" id="signin-identity"></span>
+      <button type="button" class="copy-btn" id="signout-btn">Sign out</button>
+    </div>
+    <div class="note" id="signin-status" style="display:none;"></div>
+  </div>
 
   <div class="quick-connect">
     <label class="qc-label" for="hub-host">Hub host</label>
@@ -506,6 +523,7 @@ flowchart LR
       autocomplete="off"
       spellcheck="false"
     />
+    <div class="note" id="connect-status" style="display:none;"></div>
   </div>
 
   <div class="kind-grid qc-grid" id="qc-results"></div>
@@ -627,136 +645,7 @@ flowchart LR
   </div>
 </footer>
 
-<script>
-  // Render the mermaid diagram if the CDN script loaded; otherwise fall back
-  // to the plain-text description already in the page (e.g. offline, an
-  // ad-blocker, or jsdelivr unreachable) rather than showing broken markup.
-  (function () {
-    var pre = document.querySelector('.diagram pre.mermaid');
-    var fallback = document.querySelector('.diagram-fallback');
-    if (!pre) return;
-    if (typeof window.mermaid === 'undefined') {
-      pre.style.display = 'none';
-      if (fallback) fallback.style.display = 'block';
-      return;
-    }
-    try {
-      window.mermaid.initialize({
-        startOnLoad: false,
-        theme: 'dark',
-        themeVariables: {
-          darkMode: true,
-          background: '#060606',
-          primaryColor: '#111111',
-          primaryTextColor: '#f0f0f0',
-          primaryBorderColor: '#c5e8dc',
-          lineColor: '#5c8f94',
-          secondaryColor: '#181818',
-          tertiaryColor: '#1f1f1f',
-          clusterBkg: '#181818',
-          clusterBorder: '#353535',
-          fontFamily:
-            'Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        },
-      });
-      window.mermaid.run({ querySelector: '.mermaid' }).catch(function () {
-        pre.style.display = 'none';
-        if (fallback) fallback.style.display = 'block';
-      });
-    } catch (e) {
-      pre.style.display = 'none';
-      if (fallback) fallback.style.display = 'block';
-    }
-  })();
-
-  function wireCopyButtons(root) {
-    root.querySelectorAll('.copy-btn:not([data-wired])').forEach(function (btn) {
-      btn.setAttribute('data-wired', '1');
-      btn.addEventListener('click', function () {
-        var value = btn.getAttribute('data-copy') || '';
-        var done = function () {
-          var original = btn.textContent;
-          btn.textContent = 'Copied';
-          btn.classList.add('copied');
-          setTimeout(function () {
-            btn.textContent = original;
-            btn.classList.remove('copied');
-          }, 1200);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(value).then(done).catch(function () {});
-        }
-      });
-    });
-  }
-  wireCopyButtons(document);
-
-  // Quick-connect generator. Mirrors ci-glasses-app/src/config/HubPresets.ts
-  // (hubHost() normalization + the 5 standard service presets) so these
-  // values always match what CI-Hub quick-connect fills in Settings — if
-  // that file's presets change, update PRESETS below to match.
-  (function () {
-    var HUB_PORT = 8787;
-    var PRESETS = [
-      { label: 'Assistant', kind: 'auto', model: 'ci-companion' },
-      { label: 'Ollama', kind: 'local-llm', model: 'llama3.2' },
-      { label: 'Hermes', kind: 'hermes', model: 'hermes-agent' },
-      { label: 'OpenClaw', kind: 'openclaw', model: 'openclaw/default' },
-      { label: 'Memory', kind: 'memory', model: 'ci-memory' },
-    ];
-
-    function hubHost(raw) {
-      var trimmed = (raw || '').trim().replace(/\/+$/, '');
-      if (!trimmed) return 'http://localhost';
-      var withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
-        ? trimmed
-        : 'http://' + trimmed;
-      try {
-        var u = new URL(withScheme);
-        return u.protocol + '//' + u.hostname;
-      } catch (e) {
-        return 'http://localhost';
-      }
-    }
-
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-      });
-    }
-
-    function qcRow(label, value) {
-      var safe = escapeHtml(value);
-      return (
-        '<div class="qc-row"><span class="qc-field-label">' + label + '</span>' +
-        '<span class="qc-field-value"><code title="' + safe + '">' + safe + '</code>' +
-        '<button class="copy-btn" data-copy="' + safe + '">Copy</button></span></div>'
-      );
-    }
-
-    function render() {
-      var input = document.getElementById('hub-host');
-      var out = document.getElementById('qc-results');
-      if (!input || !out) return;
-      var agentHubUrl = hubHost(input.value) + ':' + HUB_PORT;
-      out.innerHTML = PRESETS.map(function (p) {
-        return (
-          '<div class="kind-card qc-card">' +
-          '<div class="kind-name">' + p.label + '</div>' +
-          qcRow('Backend URL', agentHubUrl) +
-          qcRow('Backend Kind', p.kind) +
-          qcRow('Model', p.model) +
-          '</div>'
-        );
-      }).join('');
-      wireCopyButtons(out);
-    }
-
-    var hostInput = document.getElementById('hub-host');
-    if (hostInput) hostInput.addEventListener('input', render);
-    render();
-  })();
-</script>
+<script src="./app.js"></script>
 
 </body>
 </html>
