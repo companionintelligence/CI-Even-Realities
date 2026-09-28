@@ -31,6 +31,13 @@ via its own `package.json` / Docker tag.
   GitHub Actions workflow does, with a Mermaid diagram and exact `gh workflow
   run` commands. Kept separate from the generated `docs/CI.md`, which says
   not to hand-edit it.
+- **`er-connect` sign-in + auto-connect** — a real Authorization Code + PKCE
+  flow against CI-Portal (mirroring `ci-glasses-app/src/auth/OidcClient.ts`),
+  wired into the existing Quick Connect section. Once signed in with a Hub
+  host entered, both are remembered (`localStorage`) and reconnect
+  automatically on the next visit — no clicks needed. Needs a CI-Portal
+  `PUBLIC_CLIENTS` entry for `ci-er-connect` before sign-in works end to end;
+  see `er-connect/README.md`.
 
 ### Fixed
 
@@ -39,6 +46,17 @@ via its own `package.json` / Docker tag.
   and visually mismatch the current app. Added a pre-flight checklist item
   and a `ROADMAP.md` note; recapturing them needs simulator/device access
   this session doesn't have.
+- **`er-connect` is deployed and live** at `er.ci.computer`. Turned out
+  `wrangler pages project create`/`deploy` no longer create or target
+  classic Cloudflare Pages projects (as of wrangler 4.143.0) — they're
+  Cloudflare Workers with static assets now, and `wrangler pages deploy`
+  fails against one (`The Pages project ... does not exist`). Switched to
+  plain `wrangler deploy`, reading the Worker name, assets directory, and
+  the `er.ci.computer` custom-domain route from a committed
+  `er-connect/wrangler.jsonc`; updated `deploy-er-connect.yml` to match.
+  `er-connect/README.md`'s four-option deploy flowchart is gone, replaced
+  with the two paths that actually apply now (local `wrangler deploy`, or
+  the GitHub Actions workflow).
 
 ## [0.5.0] — Even Hub SDK 0.0.16, native long-press, CI-Server hardening
 

@@ -29,7 +29,7 @@ flowchart TD
     t1 --> ciJob["Typecheck, Lint & Test<br/>(ci-glasses-app)"]
     t1 --> hubJob["agent-hub —<br/>Typecheck & Test"]
     t2 --> canonJob["style-canon-lint<br/>(ci-lint-canon)"]
-    t3 --> deployJob["Publish er-connect/<br/>to Cloudflare Pages"]
+    t3 --> deployJob["Publish er-connect/<br/>to Cloudflare"]
 
     ciJob --> greenCi(["pass / fail"])
     hubJob --> greenHub(["pass / fail"])
@@ -41,7 +41,7 @@ flowchart TD
 |---|---|---|---|
 | `ci.yml` | `ci` (ci-glasses-app), `agent-hub` | `npm run typecheck`, `npm run lint` (ci-glasses-app only), `npm test` for both packages | `ci-glasses-app`'s job needs `NODE_AUTH_TOKEN` (uses the workflow's own `secrets.GITHUB_TOKEN`) to install the private `@companionintelligence/*` packages from `npm.pkg.github.com`. `agent-hub` has no private deps and needs nothing extra. |
 | `style-canon-lint.yml` | `style-canon-lint` | Runs `ci-lint-canon` (from `@companionintelligence/config`) against `ci-glasses-app` to check the CI-Common design-token canon is followed | Same `NODE_AUTH_TOKEN` requirement as `ci.yml`, for the same reason. |
-| `deploy-er-connect.yml` | `deploy` | Publishes `er-connect/` to Cloudflare Pages via `wrangler pages deploy` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets — **not yet configured** as of this writing. See [`er-connect/README.md`](../er-connect/README.md) for one-time setup (dashboard, CLI, or a Cloudflare connector). |
+| `deploy-er-connect.yml` | `deploy` | Publishes `er-connect/` via plain `wrangler deploy` — it's a Cloudflare Worker with static assets (config in `er-connect/wrangler.jsonc`), not a classic Pages project; `wrangler pages deploy` doesn't work against it | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets — **not yet configured** as of this writing, so this workflow can't redeploy yet even though the site itself is already live at `er.ci.computer` (deployed locally). See [`er-connect/README.md`](../er-connect/README.md). |
 
 ## Commands (macOS)
 
@@ -61,7 +61,7 @@ gh workflow run ci.yml --repo companionintelligence/CI-Even-Realities --ref main
 # Run the design-token canon lint
 gh workflow run style-canon-lint.yml --repo companionintelligence/CI-Even-Realities --ref main
 
-# Deploy er-connect to Cloudflare Pages (needs the repo secrets above first)
+# Deploy er-connect to Cloudflare (needs the repo secrets above first)
 gh workflow run deploy-er-connect.yml --repo companionintelligence/CI-Even-Realities --ref main
 ```
 
@@ -96,5 +96,5 @@ npm run typecheck && npm test
 ## Related docs
 
 - [`docs/CI.md`](CI.md) — the generated runbook: why triggers are gated, and the canonical dispatch commands (regenerate with `ci-local docs`, from the org's `CI-Local-CICD` tooling — not part of this repo).
-- [`er-connect/README.md`](../er-connect/README.md) — Cloudflare Pages deploy options for `deploy-er-connect.yml`'s target.
+- [`er-connect/README.md`](../er-connect/README.md) — deploy details (it's a Cloudflare Worker, not Pages) for `deploy-er-connect.yml`'s target.
 - [`CHANGELOG.md`](../CHANGELOG.md) — when each workflow/job was added.

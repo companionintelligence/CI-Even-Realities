@@ -278,7 +278,7 @@ ci-even-realities/
 ├── notes/
 │   ├── even-realities-resources.md ← links, community notes, SDK tips
 │   └── openai-api-transition.md    ← Chat Completions → Responses API transition notes
-├── er-connect/            ← public "Setup & Connect" page, deployed to er.ci.computer (Cloudflare Pages)
+├── er-connect/            ← public "Setup & Connect" page, deployed to er.ci.computer (Cloudflare Worker)
 └── ci-glasses-app/        ← Even Hub app source
     ├── index.html
     ├── app.json

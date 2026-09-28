@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 # agent-hub local runtime logs
 agent-hub/*.log
+
+# Wrangler local cache/build output (er-connect)
+.wrangler/
