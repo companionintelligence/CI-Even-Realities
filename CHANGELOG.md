@@ -16,6 +16,29 @@ via its own `package.json` / Docker tag.
   Ollama, Hermes, OpenClaw, Memory), each with a copy button. Computed
   client-side, mirroring `ci-glasses-app/src/config/HubPresets.ts`'s
   `hubHost()` normalization and preset table exactly — no network calls.
+- **`er-connect` "How it works" diagram + real screenshots** — a
+  Mermaid-rendered flow diagram (glasses → phone → backend → AI) and a "See
+  it in action" section using the current-brand Chat/Settings screenshots
+  (the same ones the main README uses). `_headers`' CSP now allows
+  `cdn.jsdelivr.net` in `script-src` for the Mermaid library.
+- **Mermaid diagrams in docs** — the main README's ASCII architecture
+  diagram is now a Mermaid flowchart (GitHub renders it inline); `er-connect/README.md`
+  gained a deploy-decision flowchart (Option A/B/C/D).
+- **`er-connect/README.md` Option D** — a complete `wrangler` CLI command
+  sequence (login → create project → deploy → attach custom domain) for
+  deploying straight from a terminal, no Cloudflare dashboard clicking.
+- **`docs/ci-pipeline.md`** (new, hand-maintained) — documents what each
+  GitHub Actions workflow does, with a Mermaid diagram and exact `gh workflow
+  run` commands. Kept separate from the generated `docs/CI.md`, which says
+  not to hand-edit it.
+
+### Fixed
+
+- Flagged `ci-glasses-app/assets/screenshots/*.png` (used by `PUBLISHING.md`'s
+  store-listing checklist) as stale — they predate the sage brand migration
+  and visually mismatch the current app. Added a pre-flight checklist item
+  and a `ROADMAP.md` note; recapturing them needs simulator/device access
+  this session doesn't have.
 
 ## [0.5.0] — Even Hub SDK 0.0.16, native long-press, CI-Server hardening
 

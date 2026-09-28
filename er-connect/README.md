@@ -6,7 +6,10 @@ no dependency on the private `@companionintelligence/*` packages (the canon
 color tokens are hardcoded from `ci-glasses-app/src/ui/styles.css`, since this
 site has no npm install step of its own). Includes a client-side "Quick
 Connect" config generator (mirrors `ci-glasses-app/src/config/HubPresets.ts`)
-— no network calls, nothing leaves the visitor's browser.
+and a Mermaid "how it works" diagram — no network calls beyond loading fonts
+and the Mermaid script; nothing you type leaves the visitor's browser.
+
+![Preview of the er-connect page: hero, backend-kind chips, and the "how it works" diagram](assets/preview.png)
 
 ## Preview locally
 
@@ -20,7 +23,23 @@ npx serve er-connect
 Neither this repo's CI nor any Claude session working in it currently has
 Cloudflare access (no API token, no connected connector). Someone with access
 to the Cloudflare account that owns the `ci.computer` zone needs to do a
-**one-time** setup. Two ways to do it — pick one:
+**one-time** setup. Pick one:
+
+```mermaid
+flowchart TD
+    start{"How do you want<br/>to deploy?"}
+    start -->|"Just get it live,<br/>auto-redeploy on push"| a["Option A<br/>Cloudflare dashboard<br/>Connect to Git"]
+    start -->|"I'm comfortable<br/>in a terminal"| d["Option D<br/>wrangler CLI<br/>on your Mac"]
+    start -->|"Keep deploys manual,<br/>like this repo's CI"| b["Option B<br/>GitHub Actions<br/>workflow_dispatch"]
+    start -->|"Let Claude drive it<br/>directly next time"| c["Option C<br/>connect the Cloudflare<br/>connector"]
+
+    a --> live(["er.ci.computer live"])
+    d --> live
+    b --> live
+    c -.->|"if its tools cover<br/>Pages + DNS"| live
+```
+
+
 
 ### Option A — Cloudflare's own Git integration (simplest, recommended)
 
@@ -68,6 +87,37 @@ on every push; this one only runs when dispatched).
    action, or `wrangler pages domain add er.ci.computer --project-name=ci-er-connect`
    for whoever holds the account credentials).
 
+### Option D — wrangler CLI from your Mac (no dashboard clicking at all)
+
+Same end result as Option A, entirely from Terminal. Needs Node.js (`brew
+install node` if you don't have it) and a Cloudflare account with access to
+the `ci.computer` zone.
+
+```bash
+# 1. Install Cloudflare's CLI
+npm install -g wrangler
+
+# 2. Log in (opens a browser tab once, then remembers you)
+wrangler login
+
+# 3. Get the repo, if you don't already have it locally
+git clone https://github.com/companionintelligence/CI-Even-Realities.git
+cd CI-Even-Realities
+
+# 4. Create the Pages project (one-time)
+wrangler pages project create ci-er-connect --production-branch=main
+
+# 5. Deploy the site
+wrangler pages deploy er-connect --project-name=ci-er-connect
+
+# 6. Attach the custom domain (one-time; the ci.computer zone must already
+#    be on this Cloudflare account)
+wrangler pages domain add er.ci.computer --project-name=ci-er-connect
+```
+
+`er.ci.computer` is live after step 6. To push a future update by hand, `cd`
+into the repo, `git pull`, and re-run step 5 — that's the whole redeploy.
+
 ### Option C — give a future Claude session Cloudflare access
 
 This Claude Code org has a **"Cloudflare Developer Platform"** connector
@@ -80,6 +130,6 @@ back to Option A or B.
 
 ## Files
 
-- `index.html` — the whole page: content, inline styles, the Quick Connect generator, and a copy-to-clipboard helper.
-- `assets/` — shared app icon, copied from `ci-glasses-app/assets/icons/` (favicon, apple-touch-icon, hero mark).
-- `_headers` — Cloudflare Pages security headers (CSP, frame/referrer policy).
+- `index.html` — the whole page: content, inline styles, the "how it works" Mermaid diagram, the Quick Connect generator, and a copy-to-clipboard helper.
+- `assets/` — app icon (from `ci-glasses-app/assets/icons/`), the Chat/Settings screenshots (from `docs/ui/`, the same current-brand captures the main README uses), and `preview.png` (a fresh full-viewport capture of this page, for this README).
+- `_headers` — Cloudflare Pages security headers (CSP, frame/referrer policy; `script-src` allows `cdn.jsdelivr.net` for the Mermaid library).

@@ -27,6 +27,7 @@ npm run pack:ehpk       # builds + produces ci-companion.ehpk
 - [ ] "Sign in with Companion Intelligence" (CI-Portal OIDC) reaches the configured issuer; signed-out API-key mode still works
 - [ ] CI-Hub quick-connect fills a valid Ollama/Hermes/OpenClaw backend from a Hub base URL
 - [ ] Manually smoke-tested in the Even Hub simulator against at least one live backend (recommend Ollama)
+- [ ] Store-listing screenshots recaptured on the current brand (see the stale-brand warning under "Screenshots already captured" below) — not yet done
 
 ---
 
@@ -174,6 +175,17 @@ Use this as the starting point — the portal accepts plain text + images.
 - `icon-512.png` is also bundled inside the `.ehpk` at `dist/icon.png`
 
 **Screenshots already captured** (in `ci-glasses-app/assets/screenshots/`):
+
+> ⚠️ **Stale brand alert.** These seven screenshots predate the CI-Common
+> canon 1.0 migration (`d4b7d2a`, `9244b1a`) — they show the app's original
+> bright-green accent, not the current sage `--primary` (`#c5e8dc`) used
+> everywhere else today (compare against `docs/ui/glasses-chat-dark.png` /
+> `glasses-settings-dark.png`, which *are* current). Submitting the store
+> listing with this set would show a UI that doesn't match what installs.
+> Recapture all seven from a current build before the next portal upload —
+> see `docs/dev-setup.md` for the simulator workflow. Nothing in this
+> session could do it (no simulator/device access here), so it's flagged
+> here rather than silently left stale.
 
 | File | What it shows | Source |
 |---|---|---|

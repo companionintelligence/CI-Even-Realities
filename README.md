@@ -2,7 +2,7 @@
 
 > **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
 
-For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md).
+For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect guide](https://er.ci.computer) ([source](er-connect/)) walks through installing the app and connecting a backend in three steps, plus a live CI-Hub config generator.
 
 [![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.16-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
@@ -59,23 +59,30 @@ In a plain headless browser the bridge never resolves, so both deep-links fall t
 
 `ci-even-realities` is an [Even Hub](https://evenhub.evenrealities.com/) app for the **Even Realities G2** smart glasses, plus a sibling `agent-hub/` Node service that brokers local agents.
 
-```
-[G2 touchbar long-press] ──▶ MicCapture ──▶ Whisper STT ──▶ ApiAdapter
-                                                                │
-                                                                ▼
-                                                          ┌───────────┐
-                                                          │ agent-hub │ (LAN, optional)
-                                                          ├───────────┤
-                                                          │ adapter:  │
-                                                          │  openai   │
-                                                          │  local-llm│  → Ollama / Hermes
-                                                          │  claude-cli│ → Claude Code
-                                                          │  codex-cli │ → Codex CLI
-                                                          │  openclaw  │ → OpenClaw Gateway
-                                                          └─────┬─────┘
-[G2 display] ◀── GlassesRenderer ◀── SSE stream ◀──────────────┘
-                  │
-                  └── permission_prompt cards · ring single-tap = approve
+```mermaid
+flowchart LR
+    press["G2 touchbar<br/>long-press"] --> mic["MicCapture"]
+    mic --> stt["Whisper STT"]
+    stt --> adapter["ApiAdapter"]
+
+    subgraph hub["agent-hub (LAN, optional)"]
+        direction TB
+        openai["openai"]
+        localllm["local-llm"]
+        claudecli["claude-cli"]
+        codexcli["codex-cli"]
+        openclaw["openclaw"]
+    end
+
+    adapter --> hub
+    localllm -.-> ollama["Ollama / Hermes"]
+    claudecli -.-> claude["Claude Code"]
+    codexcli -.-> codex["Codex CLI"]
+    openclaw -.-> gateway["OpenClaw Gateway"]
+
+    hub -- SSE stream --> renderer["GlassesRenderer"]
+    renderer --> display["G2 display"]
+    hub -. "permission_prompt cards<br/>ring single-tap = approve" .-> display
 ```
 
 The glasses app stays a thin OpenAI SSE client. All agent-specific glue lives in `agent-hub/`. Point Backend URL at the hub, set Backend Kind in Settings, you're done.
@@ -265,7 +272,9 @@ ci-even-realities/
 │   ├── architecture.md    ← system architecture deep-dive
 │   ├── api-compatibility.md ← Chat Completions vs Responses API
 │   ├── dev-setup.md       ← complete developer environment guide
-│   └── glasses-display.md ← G2 display spec and rendering details
+│   ├── glasses-display.md ← G2 display spec and rendering details
+│   ├── ci-pipeline.md     ← hand-maintained: what each GH Actions workflow does + gh commands
+│   └── CI.md              ← generated (do not hand-edit): why triggers are gated, canonical dispatch commands
 ├── notes/
 │   ├── even-realities-resources.md ← links, community notes, SDK tips
 │   └── openai-api-transition.md    ← Chat Completions → Responses API transition notes
@@ -318,3 +327,4 @@ ci-even-realities/
 | Even G2 community notes | <https://github.com/nickustinov/even-g2-notes/tree/main> |
 | Awesome Even Realities G1 | <https://github.com/galfaroth/awesome-even-realities-g1> |
 | Setup & Connect page | [`er-connect/`](er-connect/) — deploys to `er.ci.computer` |
+| CI pipeline reference | [`docs/ci-pipeline.md`](docs/ci-pipeline.md) — what each workflow does + `gh` commands |
