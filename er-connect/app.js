@@ -1,30 +1,146 @@
 /**
  * app.js — er-connect
  *
- * Sign in with Companion Intelligence (CI-Portal OIDC, Authorization Code +
- * PKCE), then auto-connect to the Hub URL remembered on this device. Mirrors
- * ci-glasses-app/src/auth/OidcClient.ts and config/HubPresets.ts so this
- * lander behaves the same way the app does — see that source for the
- * canonical implementation.
+ * Two independent pieces sharing this one file (moved out of an inline
+ * <script> so it runs under the page's CSP, which only allows script-src
+ * 'self' + the Mermaid CDN — no 'unsafe-inline'):
  *
- * NOTE: CLIENT_ID below must be pre-registered in CI-Portal's PUBLIC_CLIENTS
- * with redirect_uri equal to this page's own URL (origin + pathname, no
- * query/hash). Sign-in will fail with an IdP error until that registration
- * exists — this file can't create it (that's a CI-Portal-side change).
+ * 1. Page chrome: Mermaid render, copy-to-clipboard buttons, and the Quick
+ *    Connect config generator (mirrors ci-glasses-app/src/config/HubPresets.ts).
+ * 2. Sign in with Companion Intelligence: Authorization Code + PKCE against
+ *    CI-Portal, mirroring ci-glasses-app/src/auth/OidcClient.ts. Once signed
+ *    in, the Hub host you enter below is remembered (localStorage) and the
+ *    reachability check re-runs automatically on your next visit.
+ *
+ * NOTE: CLIENT_ID must be pre-registered in CI-Portal's PUBLIC_CLIENTS with
+ * redirect_uri equal to this page's own URL (origin + pathname, no
+ * query/hash) — sign-in will fail at the authorize step until that
+ * registration exists. See README.md.
  */
 (function () {
   'use strict';
 
-  var ISSUER = 'https://hub.ci.computer/api/auth';
-  var CLIENT_ID = 'ci-er-connect';
-  var SCOPE = 'openid email profile offline_access';
-  var AGENT_HUB_PORT = 8787;
+  // ---- shared: Hub host / agent-hub presets (mirrors HubPresets.ts) -------
 
-  var TOKENS_KEY = 'er-connect:oidc-tokens';
-  var PENDING_KEY = 'er-connect:oidc-pending';
-  var HUB_URL_KEY = 'er-connect:hub-url';
+  var HUB_PORT = 8787;
+  var PRESETS = [
+    { label: 'Assistant', kind: 'auto', model: 'ci-companion' },
+    { label: 'Ollama', kind: 'local-llm', model: 'llama3.2' },
+    { label: 'Hermes', kind: 'hermes', model: 'hermes-agent' },
+    { label: 'OpenClaw', kind: 'openclaw', model: 'openclaw/default' },
+    { label: 'Memory', kind: 'memory', model: 'ci-memory' },
+  ];
 
-  var SERVICES = ['Assistant', 'Ollama', 'Hermes', 'OpenClaw', 'Memory'];
+  function hubHost(raw) {
+    var trimmed = (raw || '').trim().replace(/\/+$/, '');
+    if (!trimmed) return 'http://localhost';
+    var withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : 'http://' + trimmed;
+    try {
+      var u = new URL(withScheme);
+      return u.protocol + '//' + u.hostname;
+    } catch (e) {
+      return 'http://localhost';
+    }
+  }
+
+  function agentHubUrl(raw) {
+    return hubHost(raw) + ':' + HUB_PORT;
+  }
+
+  // ---- page chrome: mermaid, copy buttons, quick-connect cards -------------
+
+  (function renderMermaid() {
+    var pre = document.querySelector('.diagram pre.mermaid');
+    var fallback = document.querySelector('.diagram-fallback');
+    if (!pre) return;
+    if (typeof window.mermaid === 'undefined') {
+      pre.style.display = 'none';
+      if (fallback) fallback.style.display = 'block';
+      return;
+    }
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          darkMode: true,
+          background: '#060606',
+          primaryColor: '#111111',
+          primaryTextColor: '#f0f0f0',
+          primaryBorderColor: '#c5e8dc',
+          lineColor: '#5c8f94',
+          secondaryColor: '#181818',
+          tertiaryColor: '#1f1f1f',
+          clusterBkg: '#181818',
+          clusterBorder: '#353535',
+          fontFamily:
+            'Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        },
+      });
+      window.mermaid.run({ querySelector: '.mermaid' }).catch(function () {
+        pre.style.display = 'none';
+        if (fallback) fallback.style.display = 'block';
+      });
+    } catch (e) {
+      pre.style.display = 'none';
+      if (fallback) fallback.style.display = 'block';
+    }
+  })();
+
+  function wireCopyButtons(root) {
+    root.querySelectorAll('.copy-btn:not([data-wired])').forEach(function (btn) {
+      btn.setAttribute('data-wired', '1');
+      btn.addEventListener('click', function () {
+        var value = btn.getAttribute('data-copy') || '';
+        var done = function () {
+          var original = btn.textContent;
+          btn.textContent = 'Copied';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.classList.remove('copied');
+          }, 1200);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value).then(done).catch(function () {});
+        }
+      });
+    });
+  }
+  wireCopyButtons(document);
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function qcRow(label, value) {
+    var safe = escapeHtml(value);
+    return (
+      '<div class="qc-row"><span class="qc-field-label">' + label + '</span>' +
+      '<span class="qc-field-value"><code title="' + safe + '">' + safe + '</code>' +
+      '<button class="copy-btn" data-copy="' + safe + '">Copy</button></span></div>'
+    );
+  }
+
+  function renderQuickConnect() {
+    var input = document.getElementById('hub-host');
+    var out = document.getElementById('qc-results');
+    if (!input || !out) return;
+    var url = agentHubUrl(input.value);
+    out.innerHTML = PRESETS.map(function (p) {
+      return (
+        '<div class="kind-card qc-card">' +
+        '<div class="kind-name">' + p.label + '</div>' +
+        qcRow('Backend URL', url) +
+        qcRow('Backend Kind', p.kind) +
+        qcRow('Model', p.model) +
+        '</div>'
+      );
+    }).join('');
+    wireCopyButtons(out);
+  }
 
   // ---- base64url / PKCE (mirrors auth/pkce.ts) -----------------------------
 
@@ -69,6 +185,14 @@
   }
 
   // ---- OIDC discovery + PKCE flow (mirrors auth/OidcClient.ts) ------------
+
+  var ISSUER = 'https://hub.ci.computer/api/auth';
+  var CLIENT_ID = 'ci-er-connect';
+  var SCOPE = 'openid email profile offline_access';
+
+  var TOKENS_KEY = 'er-connect:oidc-tokens';
+  var PENDING_KEY = 'er-connect:oidc-pending';
+  var HUB_URL_KEY = 'er-connect:hub-url';
 
   var endpointsCache = null;
 
@@ -139,9 +263,7 @@
     });
     if (!res.ok) {
       var text = await res.text().catch(function () { return ''; });
-      var err = new Error('Token endpoint ' + res.status + ': ' + text.slice(0, 200));
-      err.httpStatus = res.status;
-      throw err;
+      throw new Error('Token endpoint ' + res.status + ': ' + text.slice(0, 200));
     }
     var json = await res.json();
     if (!json.access_token) throw new Error('Token response missing access_token');
@@ -227,31 +349,14 @@
     return { email: claims.email, name: claims.name || claims.email };
   }
 
-  // ---- Hub connect (mirrors config/HubPresets.ts) --------------------------
+  // ---- Hub reachability probe ----------------------------------------------
 
-  function hubHost(raw) {
-    var trimmed = (raw || '').trim().replace(/\/+$/, '');
-    if (!trimmed) return null;
-    var withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : 'http://' + trimmed;
+  async function probeHub(rawHost) {
+    var url = agentHubUrl(rawHost);
     try {
-      var u = new URL(withScheme);
-      return u.protocol + '//' + u.hostname;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function agentHubUrl(hubBaseUrl) {
-    var host = hubHost(hubBaseUrl);
-    return host ? host + ':' + AGENT_HUB_PORT : null;
-  }
-
-  async function probeHub(hubBaseUrl) {
-    var url = agentHubUrl(hubBaseUrl);
-    if (!url) return { ok: false, url: null };
-    try {
-      // no-cors: we can't read the response, but a resolved fetch means the
-      // host answered (vs. a network-level failure for an unreachable host).
+      // no-cors: the response body/status is opaque, but a resolved fetch
+      // means the host answered — a network-level failure (unreachable host,
+      // DNS, refused connection) rejects instead.
       await fetch(url, { mode: 'no-cors' });
       return { ok: true, url: url };
     } catch (e) {
@@ -262,93 +367,85 @@
   // ---- UI wiring -------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    var signedOutView = document.getElementById('signed-out-view');
-    var signedInView = document.getElementById('signed-in-view');
-    var identityLabel = document.getElementById('identity-label');
-    var authHeading = document.getElementById('auth-heading');
-    var authStatus = document.getElementById('auth-status');
+    var signedOutView = document.getElementById('signin-signed-out');
+    var signedInView = document.getElementById('signin-signed-in');
+    var identityEl = document.getElementById('signin-identity');
+    var signinStatus = document.getElementById('signin-status');
     var signinBtn = document.getElementById('signin-btn');
-    var hubInput = document.getElementById('hub-url');
-    var connectBtn = document.getElementById('connect-btn');
+    var signoutBtn = document.getElementById('signout-btn');
+    var hubInput = document.getElementById('hub-host');
     var connectStatus = document.getElementById('connect-status');
-    var servicesEl = document.getElementById('services');
 
-    function renderServices(state) {
-      servicesEl.innerHTML = '';
-      SERVICES.forEach(function (name) {
-        var chip = document.createElement('span');
-        chip.className = 'chip' + (state === 'live' ? ' live' : '');
-        chip.textContent = name;
-        servicesEl.appendChild(chip);
-      });
+    function setStatus(el, text, kind) {
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'note' + (kind ? ' ' + kind : '');
+      el.style.display = text ? '' : 'none';
     }
 
     function showSignedIn(identity) {
       signedOutView.style.display = 'none';
       signedInView.style.display = '';
-      var who = identity && (identity.name || identity.email);
-      identityLabel.innerHTML = who
-        ? who + (identity.email && identity.email !== who ? '<small>' + identity.email + '</small>' : '')
-        : 'Signed in';
-      var signout = document.createElement('span');
-      signout.className = 'signout';
-      signout.textContent = 'Sign out';
-      signout.addEventListener('click', function () {
-        signOut();
-        location.reload();
-      });
-      authHeading.querySelector('.signout') && authHeading.querySelector('.signout').remove();
-      authHeading.appendChild(signout);
+      identityEl.textContent = (identity && (identity.name || identity.email)) || 'Signed in';
+    }
+
+    function showSignedOut() {
+      signedOutView.style.display = '';
+      signedInView.style.display = 'none';
     }
 
     async function runConnect(auto) {
       var raw = hubInput.value.trim();
+      renderQuickConnect();
       if (!raw) {
-        if (!auto) connectStatus.textContent = 'enter a Hub URL first';
-        connectStatus.className = 'status';
-        renderServices('idle');
+        setStatus(connectStatus, auto ? '' : 'enter a Hub host first', 'error');
         return;
       }
       localStorage.setItem(HUB_URL_KEY, raw);
-      connectStatus.textContent = auto ? 'auto-connecting…' : 'connecting…';
-      connectStatus.className = 'status';
+      setStatus(connectStatus, auto ? 'auto-connecting…' : 'connecting…', '');
       var result = await probeHub(raw);
-      if (result.ok) {
-        connectStatus.textContent = 'connected: ' + result.url;
-        connectStatus.className = 'status ok';
-        renderServices('live');
-      } else {
-        connectStatus.textContent = result.url ? 'unreachable: ' + result.url : 'invalid Hub URL';
-        connectStatus.className = 'status err';
-        renderServices('idle');
-      }
+      setStatus(
+        connectStatus,
+        result.ok ? 'connected: ' + result.url : 'unreachable: ' + result.url,
+        result.ok ? 'success' : 'error'
+      );
     }
 
-    renderServices('idle');
-    connectBtn.addEventListener('click', function () { runConnect(false); });
+    var debounceTimer;
+    hubInput.addEventListener('input', function () {
+      renderQuickConnect();
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () { runConnect(false); }, 500);
+    });
+
     signinBtn.addEventListener('click', function () {
       signinBtn.disabled = true;
-      authStatus.textContent = 'redirecting to CI-Portal…';
+      setStatus(signinStatus, 'redirecting to CI-Portal…', '');
       beginSignIn().catch(function (err) {
-        authStatus.textContent = 'sign-in failed: ' + err.message;
-        authStatus.className = 'status err';
+        setStatus(signinStatus, 'sign-in failed: ' + err.message, 'error');
         signinBtn.disabled = false;
       });
     });
 
+    signoutBtn.addEventListener('click', function () {
+      signOut();
+      showSignedOut();
+      setStatus(signinStatus, '', '');
+    });
+
     var rememberedHub = localStorage.getItem(HUB_URL_KEY);
     if (rememberedHub) hubInput.value = rememberedHub;
+    renderQuickConnect();
 
     async function boot() {
       var tokens = null;
 
       if (isCallback()) {
-        authStatus.textContent = 'completing sign-in…';
+        setStatus(signinStatus, 'completing sign-in…', '');
         try {
           tokens = await completeSignInFromCallback();
         } catch (err) {
-          authStatus.textContent = 'sign-in failed: ' + err.message;
-          authStatus.className = 'status err';
+          setStatus(signinStatus, 'sign-in failed: ' + err.message, 'error');
           return;
         }
       } else {
@@ -370,12 +467,11 @@
 
       if (!tokens) return; // stay on the sign-in view
 
-      authStatus.textContent = '';
-      authStatus.className = 'status';
+      setStatus(signinStatus, '', '');
       showSignedIn(identityFromTokens(tokens));
 
-      // Auto setup: once signed in, connect immediately using whatever Hub
-      // URL is remembered on this device — no extra click needed.
+      // Auto setup: once signed in, reconnect immediately using whatever Hub
+      // host is remembered on this device — no extra click needed.
       if (hubInput.value.trim()) runConnect(true);
     }
 

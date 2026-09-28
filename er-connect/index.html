@@ -1,174 +1,651 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#060606" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="description" content="Install CI Companion for Even Realities G2, or connect this device to your CI-Hub / CI-Server." />
-    <title>CI Companion — Even Realities</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230a0a0a'/%3E%3Cpath d='M 50 17 A 33 33 0 1 0 83 50' fill='none' stroke='%23c5e8dc' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='68' cy='50' r='13' fill='none' stroke='%23c5e8dc' stroke-width='6'/%3E%3Ccircle cx='68' cy='50' r='3.5' fill='%23c5e8dc'/%3E%3C/svg%3E" />
-    <style>
-      :root {
-        --bg: #060606;
-        --surface: #101010;
-        --surface-2: #171717;
-        --border: #232323;
-        --text: #f0f0f0;
-        --text-dim: #b4b4b4;
-        --text-mute: #7a7a7a;
-        --accent: #c5e8dc;
-        --accent-dim: #6f8f87;
-        --warn: #e8c56a;
-        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      }
-      * { box-sizing: border-box; }
-      html, body {
-        margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
-        font-family: var(--sans); -webkit-font-smoothing: antialiased;
-      }
-      body {
-        display: flex; flex-direction: column; align-items: center;
-        padding: 28px 18px 48px;
-      }
-      main { width: 100%; max-width: 420px; }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CI Companion — Setup &amp; Connect</title>
+<meta name="description" content="Set up CI Companion on your Even Realities G2 smart glasses: install the app, connect an AI backend, and start talking." />
+<link rel="icon" type="image/png" href="assets/favicon-32.png" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  /*
+   * Palette mirrors ci-glasses-app/src/ui/styles.css (the CI-Common canon
+   * tokens): --primary is the canon sage #c5e8dc. Hardcoded here rather than
+   * imported from @companionintelligence/tokens because this is a standalone
+   * static site with no build step / private-registry dependency.
+   */
+  :root {
+    --bg:            #060606;
+    --surface:       #111111;
+    --surface-alt:   #181818;
+    --surface-hi:    #1f1f1f;
+    --border:        #262626;
+    --border-hi:     #353535;
 
-      header.hero { text-align: center; margin-bottom: 28px; }
-      header.hero svg { width: 64px; height: 64px; filter: drop-shadow(0 0 20px rgba(197,232,220,0.35)); }
-      header.hero h1 {
-        font-size: 19px; letter-spacing: 0.02em; margin: 14px 0 4px; font-weight: 600;
-      }
-      header.hero p { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.5; }
+    --accent:        #c5e8dc; /* canon dark primary (sage) */
+    --accent-fg:     #041620;
+    --accent-soft:   rgba(171, 212, 216, 0.18);
+    --accent-dim:    #5c8f94;
+    --accent-glow:   rgba(171, 212, 216, 0.45);
 
-      section {
-        background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-        padding: 18px; margin-bottom: 14px;
-      }
-      section h2 {
-        font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
-        color: var(--text-mute); margin: 0 0 12px; font-weight: 600;
-        display: flex; align-items: center; justify-content: space-between;
-      }
-      section h2 .signout {
-        text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--text-mute);
-        cursor: pointer; text-decoration: underline; font-weight: 400;
-      }
-      section p.hint { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin: 8px 0 0; }
+    --text:          #f0f0f0;
+    --text-soft:     #b4b4b4;
+    --text-muted:    #7a7a7a;
 
-      .btn {
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        width: 100%; padding: 13px 16px; border-radius: 11px; border: 1px solid var(--border);
-        background: var(--surface-2); color: var(--text); font-size: 14.5px; font-weight: 500;
-        text-decoration: none; cursor: pointer; font-family: inherit;
-        transition: border-color 120ms ease, transform 60ms ease;
-      }
-      .btn + .btn { margin-top: 8px; }
-      .btn:active { transform: scale(0.98); }
-      .btn.primary { background: var(--accent); color: #08110e; border-color: var(--accent); font-weight: 600; }
-      .btn:hover { border-color: var(--accent-dim); }
-      .btn:disabled { opacity: 0.55; cursor: default; transform: none; }
-      .btn .chev { opacity: 0.5; font-size: 12px; }
+    --error:         #ff5a5a;
+    --warning:       #ffba3a;
 
-      .identity {
-        display: flex; align-items: center; gap: 10px; padding: 4px 2px 12px;
-      }
-      .identity .dot {
-        width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
-        box-shadow: 0 0 8px var(--accent);
-      }
-      .identity .who { font-size: 13.5px; color: var(--text); }
-      .identity .who small { display: block; color: var(--text-mute); font-size: 11px; margin-top: 1px; }
+    --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-      label.field-label {
-        display: block; font-size: 11px; color: var(--text-mute); margin: 0 0 6px;
-        text-transform: uppercase; letter-spacing: 0.08em;
-      }
-      input[type="text"] {
-        width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border);
-        background: #0b0b0b; color: var(--text); font-family: var(--mono); font-size: 13px;
-        margin-bottom: 10px;
-      }
-      input[type="text"]:focus { outline: none; border-color: var(--accent-dim); }
+    --radius-sm: 6px;
+    --radius:    10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
 
-      .services { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
-      .chip {
-        font-size: 11px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--border);
-        color: var(--text-mute); font-family: var(--mono);
-      }
-      .chip.live { color: var(--accent); border-color: var(--accent-dim); }
+    color-scheme: dark;
+  }
 
-      .status { font-size: 11.5px; font-family: var(--mono); color: var(--text-mute); margin-top: 10px; min-height: 14px; }
-      .status.ok { color: var(--accent); }
-      .status.err { color: var(--warn); }
+  * { box-sizing: border-box; }
 
-      footer { text-align: center; margin-top: 22px; }
-      footer a { color: var(--text-mute); font-size: 12px; text-decoration: none; }
-      footer a:hover { color: var(--text-dim); }
-      footer .sep { color: #3a3a3a; margin: 0 8px; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <header class="hero">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="2" y="2" width="96" height="96" rx="20" fill="#0a0a0a"/>
-          <path d="M 50 17 A 33 33 0 1 0 83 50" fill="none" stroke="#c5e8dc" stroke-width="6" stroke-linecap="round"/>
-          <circle cx="68" cy="50" r="13" fill="none" stroke="#c5e8dc" stroke-width="6"/>
-          <circle cx="68" cy="50" r="3.5" fill="#c5e8dc"/>
-        </svg>
-        <h1>CI Companion for Even Realities</h1>
-        <p>Voice-driven AI on your G2 glasses, backed by your own Companion Intelligence stack.</p>
-      </header>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 
-      <section id="install">
-        <h2>Install</h2>
-        <a class="btn primary" href="https://evenhub.evenrealities.com/" target="_blank" rel="noopener">
-          Open Even Hub app store <span class="chev">›</span>
-        </a>
-        <a class="btn" href="https://github.com/companionintelligence/CI-Even-Realities/releases" target="_blank" rel="noopener">
-          Sideload latest .ehpk <span class="chev">›</span>
-        </a>
-        <p class="hint">Search “CI Companion” in the Even Hub app on your phone, or grab the packaged release above and load it manually.</p>
-      </section>
+  body {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 20px 64px;
+    line-height: 1.55;
+  }
 
-      <section id="auth">
-        <h2 id="auth-heading">Sign in</h2>
-        <div id="signed-out-view">
-          <button type="button" class="btn primary" id="signin-btn">
-            Sign in with Companion Intelligence <span class="chev">›</span>
-          </button>
-          <p class="hint">Authenticates against CI-Portal (<code>hub.ci.computer</code>). Once you're signed in, your Hub connection below is remembered — no need to sign in again on this device.</p>
-        </div>
-        <div id="signed-in-view" style="display:none">
-          <div class="identity">
-            <span class="dot"></span>
-            <span class="who" id="identity-label"></span>
-          </div>
-        </div>
-        <div id="auth-status" class="status"></div>
-      </section>
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
 
-      <section id="connect">
-        <h2>Connect your Hub</h2>
-        <label class="field-label" for="hub-url">CI-Hub base URL</label>
-        <input id="hub-url" type="text" inputmode="url" autocomplete="off" spellcheck="false"
-               placeholder="http://ci-hub.local or a Tailscale IP" />
-        <button type="button" class="btn" id="connect-btn">Connect</button>
-        <div class="services" id="services"></div>
-        <div id="connect-status" class="status"></div>
-        <p class="hint">Every service below routes through your Hub's <code>agent-hub</code> (port 8787) — same topology the glasses app uses.</p>
-      </section>
+  code, .mono {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
 
-      <footer>
-        <a href="https://github.com/companionintelligence/CI-Even-Realities" target="_blank" rel="noopener">GitHub</a>
-        <span class="sep">·</span>
-        <a href="https://github.com/companionintelligence/CI-Even-Realities/blob/main/docs/store-listing.md" target="_blank" rel="noopener">About</a>
-        <span class="sep">·</span>
-        <a href="https://github.com/companionintelligence/CI-Even-Realities/blob/main/LICENSE.md" target="_blank" rel="noopener">License</a>
-      </footer>
-    </main>
+  header.site {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+  }
 
-    <script src="./app.js"></script>
-  </body>
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .brand img { width: 28px; height: 28px; border-radius: 7px; display: block; }
+
+  nav.site a {
+    color: var(--text-soft);
+    margin-left: 20px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+  nav.site a:hover { color: var(--text); }
+
+  @media (max-width: 480px) {
+    header.site { flex-wrap: wrap; row-gap: 10px; }
+    .brand { font-size: 0.95rem; white-space: nowrap; }
+    nav.site a { margin-left: 0; margin-right: 14px; font-size: 0.88rem; }
+  }
+
+  .hero {
+    padding: 64px 0 40px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p.lede {
+    color: var(--text-soft);
+    font-size: 1.1rem;
+    max-width: 620px;
+    margin: 0 auto 32px;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 0.98rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn:hover { text-decoration: none; }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+    box-shadow: 0 0 24px var(--accent-glow);
+  }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-hi);
+  }
+  .btn-ghost:hover { border-color: var(--accent-dim); }
+
+  section.steps { padding: 40px 0; }
+  section.steps h2, section.block h2 {
+    font-size: 1.6rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  section.steps > p.section-lede, section.block > p.section-lede {
+    color: var(--text-muted);
+    margin: 0 0 28px;
+  }
+
+  .step-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+  }
+
+  .card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .card p { margin: 0 0 10px; color: var(--text-soft); font-size: 0.95rem; }
+  .card p:last-child { margin-bottom: 0; }
+
+  .pill-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+  .pill {
+    background: var(--surface-alt);
+    border: 1px solid var(--border-hi);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    color: var(--text-soft);
+  }
+  .pill.accent { border-color: var(--accent-dim); color: var(--accent); }
+
+  section.block { padding: 32px 0; border-top: 1px solid var(--border); }
+
+  table.cfg {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  table.cfg th, table.cfg td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.cfg th {
+    background: var(--surface-alt);
+    color: var(--text-soft);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.cfg tr:last-child td { border-bottom: none; }
+  table.cfg td.copy-cell { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    color: var(--text-soft);
+    border-radius: var(--radius-sm);
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--accent); color: var(--accent); }
+
+  .kind-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .kind-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .kind-card .kind-name { font-weight: 700; font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent); }
+  .kind-card .kind-desc { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+
+  .quick-connect { margin-bottom: 20px; }
+  .qc-label {
+    display: block;
+    color: var(--text-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .qc-input {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+  }
+  .qc-input:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .qc-input::placeholder { color: var(--text-muted); }
+
+  .qc-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .qc-card { display: flex; flex-direction: column; gap: 10px; }
+  .qc-row + .qc-row { margin-top: 0; }
+  .qc-field-label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .qc-field-value { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .qc-field-value code {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--surface-alt);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+  }
+
+  .note {
+    background: var(--surface-alt);
+    border: 1px solid var(--border-hi);
+    border-left: 3px solid var(--accent-dim);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    color: var(--text-soft);
+    font-size: 0.9rem;
+    margin-top: 16px;
+  }
+  .note strong { color: var(--text); }
+  .note.success { border-left-color: var(--accent); color: var(--text); }
+  .note.error { border-left-color: var(--error); color: var(--text); }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 8px;
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; }
+  .diagram-fallback { color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+
+  .shot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .shot-card { text-align: center; }
+  .shot-card img {
+    width: 100%;
+    max-width: 320px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-hi);
+    box-shadow: var(--shadow-soft, 0 4px 24px rgba(0, 0, 0, 0.4));
+    display: block;
+    margin: 0 auto 12px;
+  }
+  .shot-card figcaption { color: var(--text-muted); font-size: 0.85rem; }
+
+  footer.site {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    justify-content: space-between;
+  }
+  footer.site a { color: var(--text-soft); }
+  footer.site a:hover { color: var(--accent); }
+  footer .links { display: flex; gap: 18px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="brand">
+    <img src="assets/icon-512.png" alt="" width="28" height="28" />
+    CI Companion
+  </div>
+  <nav class="site">
+    <a href="#how-it-works">How it works</a>
+    <a href="#connect">Connect</a>
+    <a href="#quick-connect">Quick Connect</a>
+    <a href="#backends">Backends</a>
+    <a href="https://github.com/companionintelligence/CI-Even-Realities">GitHub</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Talk to any AI through your <span class="accent">Even Realities G2</span></h1>
+  <p class="lede">
+    CI Companion turns your G2 glasses into a voice-driven front end for the AI
+    backend you choose — local LLMs, coding agents, or your own CI-Hub. This
+    page walks through installing the app and connecting it.
+  </p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://evenhub.evenrealities.com/">Get the app on Even Hub</a>
+    <a class="btn btn-ghost" href="https://github.com/companionintelligence/CI-Even-Realities">View source on GitHub</a>
+  </div>
+</section>
+
+<section class="block" id="how-it-works">
+  <h2>How it works</h2>
+  <p class="section-lede">One glasses app, one wire contract — the backend you pick is a swap, not a rewrite.</p>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart LR
+    subgraph glasses["Even Realities G2"]
+        mic["BLE mic"]
+        hud["MicroLED HUD"]
+    end
+    phone["CI Companion<br/>phone app"]
+    subgraph pick["Pick a backend in Settings"]
+        direct["Any OpenAI-compatible URL"]
+        hub["CI-Hub, via agent-hub"]
+    end
+    ai["Ollama · Claude Code · Codex · OpenClaw · OpenAI · Companion Memory"]
+
+    mic --> phone
+    phone --> hud
+    phone --> direct
+    phone --> hub
+    direct --> ai
+    hub --> ai
+    ai -.streamed reply.-> phone
+    </pre>
+    <p class="diagram-fallback" style="display:none;">Glasses mic → phone app → your chosen backend (a direct OpenAI-compatible URL, or CI-Hub via agent-hub) → your AI (Ollama, Claude Code, Codex, OpenClaw, OpenAI, or Companion Memory) → streamed reply back to the phone and glasses HUD.</p>
+  </div>
+</section>
+
+<section class="steps" id="connect">
+  <h2>Setup, in three steps</h2>
+  <p class="section-lede">No account required to get started — bring your own backend, or connect a CI-Hub.</p>
+
+  <div class="step-grid">
+    <div class="card">
+      <div class="step-num">1</div>
+      <h3>Install CI Companion</h3>
+      <p>
+        Open the <a href="https://evenhub.evenrealities.com/">Even Hub portal</a>
+        in the Even Hub mobile app and install <strong>CI Companion</strong>
+        (package <code>com.companionintelligence.ciglasses</code>).
+      </p>
+      <p>Requires Even Hub app <code>2.2.10+</code>.</p>
+    </div>
+
+    <div class="card">
+      <div class="step-num">2</div>
+      <h3>Connect a backend</h3>
+      <p>Open the <strong>Settings</strong> tab in the app, then pick one:</p>
+      <p><strong>Sign in with Companion Intelligence</strong> — one tap under
+        Account; no API key to manage.</p>
+      <p><strong>CI-Hub quick-connect</strong> — enter your Hub's host once,
+        then tap a service below.</p>
+      <div class="pill-row">
+        <span class="pill accent">Assistant</span>
+        <span class="pill">Ollama</span>
+        <span class="pill">Hermes</span>
+        <span class="pill">OpenClaw</span>
+        <span class="pill">Memory</span>
+      </div>
+      <p><a href="#quick-connect">Sign in right here</a> instead, and this page remembers your Hub for next time.</p>
+    </div>
+
+    <div class="card">
+      <div class="step-num">3</div>
+      <h3>Start talking</h3>
+      <p>Long-press the G2 touchbar (or tap the mic in-app) to ask a question.
+        The answer streams onto the HUD as it arrives.</p>
+      <p><strong>Ring:</strong> tap = next page / deny prompt · double-tap =
+        clear conversation / approve prompt.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="screenshots">
+  <h2>See it in action</h2>
+  <p class="section-lede">The phone webview — captured from the production build, dark HUD surface, sage accent.</p>
+  <div class="shot-grid">
+    <figure class="shot-card">
+      <img src="assets/screenshot-chat.png" alt="CI Companion Chat tab — quick-prompt chips, glasses-display preview, and mic dock on the dark HUD surface" loading="lazy" width="1120" height="1840" />
+      <figcaption>Chat — quick prompts, live glasses-display preview, mic dock</figcaption>
+    </figure>
+    <figure class="shot-card">
+      <img src="assets/screenshot-settings.png" alt="CI Companion Settings tab — Backend Kind picker with Local LLM, OpenAI-like, Claude Code, Codex CLI, and OpenClaw cards" loading="lazy" width="1120" height="1840" />
+      <figcaption>Settings — pick a Backend Kind, then set its URL</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="block" id="quick-connect">
+  <h2>Sign in &amp; generate your CI-Hub config</h2>
+  <p class="section-lede">
+    Sign in with Companion Intelligence and this page remembers your Hub and
+    reconnects automatically next time you visit — or skip sign-in and just
+    fill in your Hub host below. Everything runs in your browser; the only
+    network calls are to CI-Portal (if you sign in) and to the Hub host you
+    enter (to check it's reachable).
+  </p>
+
+  <div class="quick-connect" id="signin-block">
+    <div id="signin-signed-out">
+      <button type="button" class="btn btn-primary" id="signin-btn">Sign in with Companion Intelligence</button>
+    </div>
+    <div id="signin-signed-in" class="pill-row" style="display:none;">
+      <span class="pill accent" id="signin-identity"></span>
+      <button type="button" class="copy-btn" id="signout-btn">Sign out</button>
+    </div>
+    <div class="note" id="signin-status" style="display:none;"></div>
+  </div>
+
+  <div class="quick-connect">
+    <label class="qc-label" for="hub-host">Hub host</label>
+    <input
+      id="hub-host"
+      class="qc-input"
+      type="text"
+      placeholder="ci-hub.local or 192.168.1.50"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <div class="note" id="connect-status" style="display:none;"></div>
+  </div>
+
+  <div class="kind-grid qc-grid" id="qc-results"></div>
+
+  <div class="note">
+    Every service routes through the companion <strong>agent-hub</strong>
+    (default port <code>8787</code>) — one URL for chat <em>and</em> voice.
+  </div>
+</section>
+
+<section class="block" id="manual">
+  <h2>Manual backend setup</h2>
+  <p class="section-lede">For bringing your own OpenAI-compatible endpoint instead of a CI-Hub.</p>
+
+  <table class="cfg">
+    <thead>
+      <tr><th>Field</th><th>Default</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Backend URL</td>
+        <td class="copy-cell"><code>http://localhost:8080</code>
+          <button class="copy-btn" data-copy="http://localhost:8080">Copy</button>
+        </td>
+      </tr>
+      <tr>
+        <td>API Key</td>
+        <td class="copy-cell"><code>ci-local-key</code>
+          <button class="copy-btn" data-copy="ci-local-key">Copy</button>
+        </td>
+      </tr>
+      <tr>
+        <td>Model</td>
+        <td class="copy-cell"><code>ci-companion</code>
+          <button class="copy-btn" data-copy="ci-companion">Copy</button>
+        </td>
+      </tr>
+      <tr>
+        <td>API Mode</td>
+        <td><code>auto</code> — probes the server, or force <code>completions</code> / <code>responses</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    Running the companion <strong>agent-hub</strong> instead (for Claude Code,
+    Codex CLI, or OpenClaw)? Point Backend URL at its address (default port
+    <code>8787</code>) and pick the matching Backend Kind in Settings. See the
+    <a href="https://github.com/companionintelligence/CI-Even-Realities/tree/main/agent-hub">agent-hub README</a>
+    for env vars and Docker instructions.
+  </div>
+</section>
+
+<section class="block" id="backends">
+  <h2>Supported backends</h2>
+  <p class="section-lede">The app speaks one OpenAI-compatible wire; the Backend Kind tells it what to expect on the other end.</p>
+
+  <div class="kind-grid">
+    <div class="kind-card">
+      <div class="kind-name">openai</div>
+      <div class="kind-desc">Any OpenAI-compatible URL — OpenAI, Anthropic, Gemini, etc. Hub optional.</div>
+    </div>
+    <div class="kind-card">
+      <div class="kind-name">local-llm</div>
+      <div class="kind-desc">Ollama / vLLM / llama.cpp on your LAN — Hermes, Llama, Qwen…</div>
+    </div>
+    <div class="kind-card">
+      <div class="kind-name">claude-cli</div>
+      <div class="kind-desc">agent-hub spawning Claude Code — supports permission prompts, ring-approved.</div>
+    </div>
+    <div class="kind-card">
+      <div class="kind-name">codex-cli</div>
+      <div class="kind-desc">agent-hub spawning Codex CLI — same permission-prompt flow as Claude.</div>
+    </div>
+    <div class="kind-card">
+      <div class="kind-name">openclaw</div>
+      <div class="kind-desc">agent-hub forwarding to an OpenClaw Gateway.</div>
+    </div>
+    <div class="kind-card">
+      <div class="kind-name">memory</div>
+      <div class="kind-desc">Recalls from Companion Memory (CI-Server) and streams the block back.</div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>Troubleshooting</h2>
+  <p class="section-lede">Quick answers before you file an issue.</p>
+  <div class="step-grid">
+    <div class="card">
+      <h3>“Running in browser mode”</h3>
+      <p>The app only gets glasses-BLE features inside the Even Hub app or its
+        simulator. Chat, settings, and AI requests still work in a plain
+        browser — only the HUD mirror is unavailable.</p>
+    </div>
+    <div class="card">
+      <h3>No response on the HUD</h3>
+      <p>The phone webview is the source of truth — if the glasses display
+        doesn't update, check the status bar's <strong>⚠ HUD</strong>
+        indicator; a BLE hiccup self-clears on the next send.</p>
+    </div>
+    <div class="card">
+      <h3>Still stuck?</h3>
+      <p>Open an issue on
+        <a href="https://github.com/companionintelligence/CI-Even-Realities/issues">GitHub</a>
+        or check the <a href="https://github.com/companionintelligence/CI-Even-Realities/tree/main/docs">full docs</a>.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div>Copyright LifeScope INC, DBA Companion Intelligence — licensed under
+    <a href="https://polyformproject.org/licenses/noncommercial/1.0.0">PolyForm Noncommercial 1.0.0</a>.</div>
+  <div class="links">
+    <a href="https://github.com/companionintelligence/CI-Even-Realities">GitHub</a>
+    <a href="https://github.com/companionintelligence/CI-Even-Realities/blob/main/docs/dev-setup.md">Docs</a>
+    <a href="https://github.com/companionintelligence/CI-Even-Realities/blob/main/architecture.md">Architecture</a>
+    <a href="https://evenhub.evenrealities.com/">Even Hub</a>
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+
+</body>
 </html>

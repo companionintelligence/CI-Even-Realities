@@ -25,6 +25,8 @@ Next steps for testing and development of `ci-even-realities`.
 - [ ] **Streaming abort** — implement an abort button / gesture that cancels the in-flight `fetch` (via `AbortController`) and stops the SSE stream mid-response.
 - [x] **agent-hub subprocess timeouts** — `claudeCli`/`codexCli` adapters now enforce an inactivity timeout, a wall-clock cap, and a periodic heartbeat status, so a hung CLI subprocess surfaces an error instead of leaving the HUD on "thinking…" forever. Configurable via `AGENT_INACTIVITY_TIMEOUT_MS` / `AGENT_WALL_CLOCK_MAX_MS` / `AGENT_HEARTBEAT_INTERVAL_MS`.
 - [x] **SSE stream resume** — the agent-hub buffers each turn's SSE events per session (`streamBuffer.ts`) and exposes `GET /v1/chat/completions/stream?session_id=...&after=<cursor>`; `ChatCompletions.ts` reconnects through it automatically if the connection drops or ends without `[DONE]`, so a dropped wifi link or backgrounded WebView loses at most a few seconds of text instead of the whole in-flight answer. A dropped connection no longer aborts the turn on its own — explicit cancellation goes through the new `POST /v1/sessions/:id/cancel`, called by the app when the user clears the conversation or starts a new turn.
+- [x] **CI-Server recall/write-back timeout** — `withMemoryAugment`/`MemoryAdapter` now abort a CI-Server `/memory/recall` or `/memory/turn` call that hasn't responded within `CI_SERVER_TIMEOUT_MS` (default 8s, via the new `fetchWithTimeout` helper), so a hung or unreachable CI-Server can no longer stall a `use_memory` turn indefinitely or leak a socket on the fire-and-forget write-back — same principle as the subprocess timeouts above.
+- [x] **Native long-press gesture** — `Main.ts` now wires the Even Hub SDK ≥0.0.16 `LONG_PRESS_EVENT` / `LONG_PRESS_RELEASE_EVENT` to mic start/stop directly, keeping `FOREGROUND_ENTER/EXIT_EVENT` as a fallback for firmware/simulator paths that still route the gesture that way.
 
 ---
 
@@ -44,7 +46,7 @@ Next steps for testing and development of `ci-even-realities`.
 
 ### Display
 
-- [ ] **Markdown rendering** — strip or convert basic markdown (bold, bullets, headers) to plain text suitable for the 5-line display.
+- [x] **Markdown rendering** — `GlassesRenderer.stripMarkdown()` strips ATX headers, bold/italic, inline code, horizontal rules, blockquotes, and list markers before every HUD render (`displayStreaming`, `displayText`, `displayPromptCard`).
 - [ ] **Notification cards** — use the Even Hub SDK's notification API to push short alerts from the AI backend.
 - [ ] **Display brightness / font size settings** — expose G2 display preferences through the Settings view.
 
@@ -59,8 +61,8 @@ Next steps for testing and development of `ci-even-realities`.
 
 ### Developer experience
 
-- [ ] **Automated CI pipeline** — GitHub Actions workflow that runs `npm run typecheck` and unit tests on every pull request.
-- [ ] **Linter configuration** — add ESLint with TypeScript and recommended rules; integrate with the CI pipeline.
+- [x] **Automated CI pipeline** — `.github/workflows/ci.yml` runs typecheck/lint/test for `ci-glasses-app` and typecheck/test for `agent-hub`. Automatic push/PR triggers are deliberately gated org-wide (hosted-runner cost); dispatch manually with `gh workflow run ci.yml` per `docs/CI.md`.
+- [x] **Linter configuration** — ESLint + `typescript-eslint` (`ci-glasses-app/eslint.config.js`) wired into the CI pipeline's Lint step.
 - [ ] **Storybook / component docs** — document the `ChatView`, `SettingsView`, and `StatusBar` components visually.
 
 ### Production quality
@@ -71,9 +73,10 @@ Next steps for testing and development of `ci-even-realities`.
 
 ### Distribution
 
-- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal.
+- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal. The description/copy is drafted (`PUBLISHING.md`); the `ci-glasses-app/assets/screenshots/` set needs recapturing first — it predates the sage brand migration (see the stale-brand warning in `PUBLISHING.md`).
 - [ ] **Version tagging** — establish a semantic versioning convention and automate version bumps via CI.
-- [ ] **Changelog** — maintain a `CHANGELOG.md` to track notable changes between releases.
+- [x] **Changelog** — [`CHANGELOG.md`](CHANGELOG.md) now tracks notable changes between releases, starting at `0.5.0`.
+- [ ] **Public setup/connect page** — [`er-connect/`](er-connect/) is a static "Setup & Connect" landing page (install, backend connect steps, manual config, supported backend kinds) with a Cloudflare Pages deploy workflow (`.github/workflows/deploy-er-connect.yml`), both done. Still open: one-time Cloudflare dashboard setup by someone with account access — `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repo secrets, first deploy, and attaching the `er.ci.computer` custom domain. See `er-connect/README.md`.
 
 ---
 
