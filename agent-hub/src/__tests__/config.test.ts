@@ -56,6 +56,10 @@ describe('loadConfig', () => {
       expect(cfg.ciServerMemoryPath).toBe('/memory/recall');
       expect(cfg.ciServerTurnPath).toBe('/memory/turn');
     });
+
+    it('defaults ciServerTimeoutMs to 8000', () => {
+      expect(cfg.ciServerTimeoutMs).toBe(8_000);
+    });
   });
 
   describe('HUB_BIND / HUB_TOKEN interaction', () => {
@@ -213,6 +217,10 @@ describe('loadConfig', () => {
       });
       expect(cfg.ciServerMemoryPath).toBe('/api/memory/recall');
       expect(cfg.ciServerTurnPath).toBe('/api/memory/turn');
+    });
+
+    it('reads a custom CI_SERVER_TIMEOUT_MS', () => {
+      expect(loadConfig({ CI_SERVER_TIMEOUT_MS: '2000' }).ciServerTimeoutMs).toBe(2_000);
     });
   });
 

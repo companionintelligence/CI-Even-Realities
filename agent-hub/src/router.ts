@@ -277,6 +277,7 @@ async function handleChatCompletions(
       apiKey: cfg.ciServerApiKey,
       recallPath: cfg.ciServerMemoryPath,
       turnPath: cfg.ciServerTurnPath,
+      timeoutMs: cfg.ciServerTimeoutMs,
     });
   }
 

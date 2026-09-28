@@ -79,6 +79,7 @@ function buildRegistry(cfg: HubConfig): Map<BackendKind, Adapter> {
       baseUrl: cfg.ciServerUrl,
       apiKey: cfg.ciServerApiKey,
       recallPath: cfg.ciServerMemoryPath,
+      timeoutMs: cfg.ciServerTimeoutMs,
     }));
   }
 

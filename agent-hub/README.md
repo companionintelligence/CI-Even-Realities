@@ -63,6 +63,7 @@ AGENT_KIND=openai DOWNSTREAM_URL=https://api.openai.com DOWNSTREAM_API_KEY=sk-..
 | `CI_SERVER_API_KEY` | *(unset)* | Memory-scoped CI-Server API key (sent as `x-api-key`). |
 | `CI_SERVER_MEMORY_PATH` | `/memory/recall` | Recall path; `/api/memory/recall` when fronting via the Hub/Traefik proxy. |
 | `CI_SERVER_TURN_PATH` | `/memory/turn` | Turn write-back path used by memory augmentation (`metadata.use_memory`). |
+| `CI_SERVER_TIMEOUT_MS` | `8000` | Abort a CI-Server recall/turn-write-back call after this long — a hung or unreachable CI-Server can't stall a chat turn on recall, or leak a socket on the fire-and-forget write-back. |
 | `STT_URL` | *(empty)* | Base URL of any Whisper-compatible transcription server — faster-whisper-server, speaches, LocalAI, or OpenAI. Enables `POST /v1/audio/transcriptions`; unset → `501`. |
 | `STT_API_KEY` | *(empty)* | Bearer token for the STT upstream, injected server-side (never shipped to the glasses). |
 

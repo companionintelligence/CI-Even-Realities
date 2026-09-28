@@ -4,9 +4,9 @@
 
 For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md).
 
-[![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.7-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.2-purple)](https://vitejs.dev/)
+[![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.16-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8.0-purple)](https://vitejs.dev/)
 
 ---
 
@@ -269,6 +269,7 @@ ci-even-realities/
 ├── notes/
 │   ├── even-realities-resources.md ← links, community notes, SDK tips
 │   └── openai-api-transition.md    ← Chat Completions → Responses API transition notes
+├── er-connect/            ← public "Setup & Connect" page, deployed to er.ci.computer (Cloudflare Pages)
 └── ci-glasses-app/        ← Even Hub app source
     ├── index.html
     ├── app.json
@@ -316,3 +317,4 @@ ci-even-realities/
 | OpenAI Chat Completions docs | <https://platform.openai.com/docs/api-reference/chat> |
 | Even G2 community notes | <https://github.com/nickustinov/even-g2-notes/tree/main> |
 | Awesome Even Realities G1 | <https://github.com/galfaroth/awesome-even-realities-g1> |
+| Setup & Connect page | [`er-connect/`](er-connect/) — deploys to `er.ci.computer` |

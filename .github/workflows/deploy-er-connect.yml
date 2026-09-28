@@ -1,0 +1,26 @@
+name: Deploy er-connect (Cloudflare Pages)
+
+# Gated like ci.yml — see docs/CI.md. Dispatch manually:
+#   gh workflow run deploy-er-connect.yml --repo companionintelligence/CI-Even-Realities --ref main
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publish er-connect/ to Cloudflare Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy er-connect --project-name=ci-er-connect --branch=main

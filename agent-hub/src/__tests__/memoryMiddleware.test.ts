@@ -234,6 +234,32 @@ describe('withMemoryAugment', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('recall 500'));
   });
 
+  it('proceeds without memories when recall times out (hung CI-Server)', async () => {
+    // A server that never responds — stands in for an unreachable/hung
+    // CI-Server. Without a timeout this would hang the chat turn forever.
+    const hanging: Server = createServer(() => {
+      /* never call res.end() */
+    });
+    await new Promise<void>((r) => hanging.listen(0, r));
+    const port = (hanging.address() as AddressInfo).port;
+    try {
+      const inner = new EchoAdapter();
+      const wrapped = withMemoryAugment(inner, {
+        baseUrl: `http://127.0.0.1:${port}`,
+        apiKey: 'k',
+        timeoutMs: 50,
+      });
+
+      const events = await collect(wrapped.run(chatReq('q'), CTX));
+
+      expect(inner.seen[0]!.messages).toHaveLength(2);
+      expect(events.some((e) => e.type === 'text' && e.delta === 'hi ')).toBe(true);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('timed out after 50ms'));
+    } finally {
+      await new Promise<void>((r) => hanging.close(() => r()));
+    }
+  });
+
   it('writes the completed turn back to CI-Server', async () => {
     const inner = new EchoAdapter();
     const wrapped = withMemoryAugment(inner, { baseUrl: up.url, apiKey: 'mk-2' });
@@ -308,6 +334,7 @@ describe('router memory augmentation', () => {
     ciServerApiKey: 'mk-router',
     ciServerMemoryPath: '/memory/recall',
     ciServerTurnPath: '/memory/turn',
+    ciServerTimeoutMs: 8_000,
   });
 
   async function withRouterServer<T>(

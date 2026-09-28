@@ -89,4 +89,26 @@ describe('MemoryAdapter', () => {
     expect(events[0]).toMatchObject({ type: 'error' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('surfaces a timeout as an error event instead of hanging forever', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+        })
+    );
+    const a = new MemoryAdapter({ baseUrl: 'http://server:3030', apiKey: 'k', timeoutMs: 50 });
+
+    const collected = collect(a.run(req('q'), CTX));
+    await vi.advanceTimersByTimeAsync(50);
+    const events = await collected;
+
+    expect(events.some((e) => e.type === 'error' && /timed out after 50ms/.test(e.message))).toBe(
+      true
+    );
+    vi.useRealTimers();
+  });
 });

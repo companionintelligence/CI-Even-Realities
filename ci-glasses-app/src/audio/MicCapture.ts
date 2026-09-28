@@ -10,6 +10,7 @@
  */
 
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
+import { AudioInputSource } from '@evenrealities/even_hub_sdk';
 import { LC3Decoder } from './LC3Decoder.ts';
 
 export type MicState = 'idle' | 'recording' | 'processing';
@@ -35,8 +36,10 @@ export class MicCapture {
     this.pcmChunks = [];
     this.state = 'recording';
 
-    // Activate microphone on the glasses
-    const ok = await this.bridge.audioControl(true);
+    // Activate microphone on the glasses. SDK ≥0.0.16 adds an optional
+    // `source` param to audioControl (glasses vs. phone mic) — pass it
+    // explicitly since MicCapture has always captured from the G2's own mic.
+    const ok = await this.bridge.audioControl(true, AudioInputSource.Glasses);
     if (!ok) {
       this.state = 'idle';
       throw new Error('Failed to start microphone');

@@ -25,6 +25,9 @@ import type {
   SessionContext,
 } from '../adapters/Adapter.ts';
 import type { AgentEvent } from '../events.ts';
+import { fetchWithTimeout } from '../fetchWithTimeout.ts';
+
+const DEFAULT_TIMEOUT_MS = 8_000;
 
 export interface MemoryAugmentOptions {
   /** CI-Server base URL (direct, e.g. http://<hub>:3030). */
@@ -37,6 +40,12 @@ export interface MemoryAugmentOptions {
   turnPath?: string;
   /** Max memories to recall per query. */
   maxResults?: number;
+  /**
+   * Abort a recall or turn write-back call after this long (ms). Default
+   * 8000. Applies to both — a hung CI-Server must not stall the chat turn
+   * on recall, nor leak a socket on the fire-and-forget write-back.
+   */
+  timeoutMs?: number;
 }
 
 /**
@@ -75,16 +84,22 @@ export function withMemoryAugment(
     Accept: 'application/json',
   };
 
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
   /** Best-effort recall; returns '' on any failure or empty result. */
   async function recall(query: string, signal: AbortSignal): Promise<string> {
     let res: Response;
     try {
-      res = await fetch(recallUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ query, maxResults: opts.maxResults ?? 5 }),
-        signal,
-      });
+      res = await fetchWithTimeout(
+        recallUrl,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query, maxResults: opts.maxResults ?? 5 }),
+        },
+        timeoutMs,
+        signal
+      );
     } catch (e) {
       console.warn(`[memory-augment] recall failed: ${(e as Error).message}`);
       return '';
@@ -115,16 +130,20 @@ export function withMemoryAugment(
 
   /** Fire-and-forget turn write-back; logs failures, never throws. */
   function writeTurn(sessionId: string, user: string, assistant: string): void {
-    fetch(turnUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        session_id: sessionId,
-        user,
-        assistant,
-        source: 'ci-glasses',
-      }),
-    })
+    fetchWithTimeout(
+      turnUrl,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session_id: sessionId,
+          user,
+          assistant,
+          source: 'ci-glasses',
+        }),
+      },
+      timeoutMs
+    )
       .then((res) => {
         if (!res.ok) {
           console.warn(`[memory-augment] turn write-back ${res.status}`);
