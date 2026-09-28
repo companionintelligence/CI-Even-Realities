@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   /*
    * Palette mirrors ci-glasses-app/src/ui/styles.css (the CI-Common canon
@@ -327,6 +328,33 @@
   }
   .note strong { color: var(--text); }
 
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 8px;
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; }
+  .diagram-fallback { color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+
+  .shot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .shot-card { text-align: center; }
+  .shot-card img {
+    width: 100%;
+    max-width: 320px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-hi);
+    box-shadow: var(--shadow-soft, 0 4px 24px rgba(0, 0, 0, 0.4));
+    display: block;
+    margin: 0 auto 12px;
+  }
+  .shot-card figcaption { color: var(--text-muted); font-size: 0.85rem; }
+
   footer.site {
     margin-top: 48px;
     padding-top: 24px;
@@ -351,6 +379,7 @@
     CI Companion
   </div>
   <nav class="site">
+    <a href="#how-it-works">How it works</a>
     <a href="#connect">Connect</a>
     <a href="#quick-connect">Quick Connect</a>
     <a href="#backends">Backends</a>
@@ -368,6 +397,35 @@
   <div class="cta-row">
     <a class="btn btn-primary" href="https://evenhub.evenrealities.com/">Get the app on Even Hub</a>
     <a class="btn btn-ghost" href="https://github.com/companionintelligence/CI-Even-Realities">View source on GitHub</a>
+  </div>
+</section>
+
+<section class="block" id="how-it-works">
+  <h2>How it works</h2>
+  <p class="section-lede">One glasses app, one wire contract — the backend you pick is a swap, not a rewrite.</p>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart LR
+    subgraph glasses["Even Realities G2"]
+        mic["BLE mic"]
+        hud["MicroLED HUD"]
+    end
+    phone["CI Companion<br/>phone app"]
+    subgraph pick["Pick a backend in Settings"]
+        direct["Any OpenAI-compatible URL"]
+        hub["CI-Hub, via agent-hub"]
+    end
+    ai["Ollama · Claude Code · Codex · OpenClaw · OpenAI · Companion Memory"]
+
+    mic --> phone
+    phone --> hud
+    phone --> direct
+    phone --> hub
+    direct --> ai
+    hub --> ai
+    ai -.streamed reply.-> phone
+    </pre>
+    <p class="diagram-fallback" style="display:none;">Glasses mic → phone app → your chosen backend (a direct OpenAI-compatible URL, or CI-Hub via agent-hub) → your AI (Ollama, Claude Code, Codex, OpenClaw, OpenAI, or Companion Memory) → streamed reply back to the phone and glasses HUD.</p>
   </div>
 </section>
 
@@ -412,6 +470,21 @@
       <p><strong>Ring:</strong> tap = next page / deny prompt · double-tap =
         clear conversation / approve prompt.</p>
     </div>
+  </div>
+</section>
+
+<section class="block" id="screenshots">
+  <h2>See it in action</h2>
+  <p class="section-lede">The phone webview — captured from the production build, dark HUD surface, sage accent.</p>
+  <div class="shot-grid">
+    <figure class="shot-card">
+      <img src="assets/screenshot-chat.png" alt="CI Companion Chat tab — quick-prompt chips, glasses-display preview, and mic dock on the dark HUD surface" loading="lazy" width="1120" height="1840" />
+      <figcaption>Chat — quick prompts, live glasses-display preview, mic dock</figcaption>
+    </figure>
+    <figure class="shot-card">
+      <img src="assets/screenshot-settings.png" alt="CI Companion Settings tab — Backend Kind picker with Local LLM, OpenAI-like, Claude Code, Codex CLI, and OpenClaw cards" loading="lazy" width="1120" height="1840" />
+      <figcaption>Settings — pick a Backend Kind, then set its URL</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -555,6 +628,47 @@
 </footer>
 
 <script>
+  // Render the mermaid diagram if the CDN script loaded; otherwise fall back
+  // to the plain-text description already in the page (e.g. offline, an
+  // ad-blocker, or jsdelivr unreachable) rather than showing broken markup.
+  (function () {
+    var pre = document.querySelector('.diagram pre.mermaid');
+    var fallback = document.querySelector('.diagram-fallback');
+    if (!pre) return;
+    if (typeof window.mermaid === 'undefined') {
+      pre.style.display = 'none';
+      if (fallback) fallback.style.display = 'block';
+      return;
+    }
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          darkMode: true,
+          background: '#060606',
+          primaryColor: '#111111',
+          primaryTextColor: '#f0f0f0',
+          primaryBorderColor: '#c5e8dc',
+          lineColor: '#5c8f94',
+          secondaryColor: '#181818',
+          tertiaryColor: '#1f1f1f',
+          clusterBkg: '#181818',
+          clusterBorder: '#353535',
+          fontFamily:
+            'Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        },
+      });
+      window.mermaid.run({ querySelector: '.mermaid' }).catch(function () {
+        pre.style.display = 'none';
+        if (fallback) fallback.style.display = 'block';
+      });
+    } catch (e) {
+      pre.style.display = 'none';
+      if (fallback) fallback.style.display = 'block';
+    }
+  })();
+
   function wireCopyButtons(root) {
     root.querySelectorAll('.copy-btn:not([data-wired])').forEach(function (btn) {
       btn.setAttribute('data-wired', '1');

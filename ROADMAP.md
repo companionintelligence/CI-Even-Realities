@@ -73,7 +73,7 @@ Next steps for testing and development of `ci-even-realities`.
 
 ### Distribution
 
-- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal.
+- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal. The description/copy is drafted (`PUBLISHING.md`); the `ci-glasses-app/assets/screenshots/` set needs recapturing first — it predates the sage brand migration (see the stale-brand warning in `PUBLISHING.md`).
 - [ ] **Version tagging** — establish a semantic versioning convention and automate version bumps via CI.
 - [x] **Changelog** — [`CHANGELOG.md`](CHANGELOG.md) now tracks notable changes between releases, starting at `0.5.0`.
 - [ ] **Public setup/connect page** — [`er-connect/`](er-connect/) is a static "Setup & Connect" landing page (install, backend connect steps, manual config, supported backend kinds) with a Cloudflare Pages deploy workflow (`.github/workflows/deploy-er-connect.yml`), both done. Still open: one-time Cloudflare dashboard setup by someone with account access — `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repo secrets, first deploy, and attaching the `er.ci.computer` custom domain. See `er-connect/README.md`.
