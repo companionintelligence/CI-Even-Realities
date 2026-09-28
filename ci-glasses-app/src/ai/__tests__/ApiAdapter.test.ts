@@ -120,6 +120,91 @@ describe('ApiAdapter', () => {
     });
   });
 
+  describe('auto mode — probe false positive (server answers OPTIONS on every path)', () => {
+    /**
+     * Servers with global CORS handling (agent-hub, Express `cors()`, …) answer
+     * a preflight OPTIONS with 2xx for ANY path, so the probe reports
+     * "Responses API supported" for an endpoint that does not exist. The
+     * first real POST then 404s. Auto mode must recover from that.
+     */
+    function mockOptionsOkEverywhere(responsesStatus: number) {
+      fetchMock.mockImplementation(async (url: string, opts: RequestInit) => {
+        if (opts?.method === 'OPTIONS') return new Response(null, { status: 204 });
+        if ((url as string).endsWith('/v1/responses')) {
+          return new Response('{"error":"not_found"}', { status: responsesStatus });
+        }
+        return makeCompletionsResponse('completions answer');
+      });
+    }
+
+    const postedUrls = () =>
+      fetchMock.mock.calls
+        .filter(([, o]) => (o as RequestInit)?.method === 'POST')
+        .map(([u]) => u as string);
+
+    it.each([404, 405, 501])(
+      'retries the same turn on Chat Completions when POST /v1/responses returns %i',
+      async (status) => {
+        mockOptionsOkEverywhere(status);
+
+        const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+        const result = await collect(adapter.sendMessage('hi'));
+
+        expect(result).toEqual(['completions answer']);
+        expect(postedUrls()).toEqual([
+          'http://localhost:8080/v1/responses',
+          'http://localhost:8080/v1/chat/completions',
+        ]);
+      }
+    );
+
+    it('remembers the fallback so later turns skip the Responses endpoint', async () => {
+      mockOptionsOkEverywhere(404);
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+      await collect(adapter.sendMessage('first'));
+      await collect(adapter.sendMessage('second'));
+
+      expect(postedUrls()).toEqual([
+        'http://localhost:8080/v1/responses',
+        'http://localhost:8080/v1/chat/completions',
+        'http://localhost:8080/v1/chat/completions',
+      ]);
+    });
+
+    it('does not mask real server errors: a 500 still surfaces', async () => {
+      mockOptionsOkEverywhere(500);
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+      await expect(collect(adapter.sendMessage('hi'))).rejects.toThrow(
+        /Responses API error 500/
+      );
+      expect(postedUrls()).toEqual(['http://localhost:8080/v1/responses']);
+    });
+
+    it('does not fall back when the user explicitly chose the Responses API', async () => {
+      mockOptionsOkEverywhere(404);
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'responses' });
+      await expect(collect(adapter.sendMessage('hi'))).rejects.toThrow(
+        /Responses API error 404/
+      );
+      expect(postedUrls()).toEqual(['http://localhost:8080/v1/responses']);
+    });
+
+    it('re-probes after updateConfig even once a fallback was remembered', async () => {
+      mockOptionsOkEverywhere(404);
+
+      const adapter = new ApiAdapter({ ...BASE_CONFIG, apiMode: 'auto' });
+      await collect(adapter.sendMessage('first'));
+      adapter.updateConfig({ ...BASE_CONFIG, apiMode: 'auto', baseUrl: 'http://localhost:9090' });
+      fetchMock.mockClear();
+      await collect(adapter.sendMessage('second'));
+
+      expect(postedUrls()[0]).toBe('http://localhost:9090/v1/responses');
+    });
+  });
+
   describe('concurrent callers share a single OPTIONS probe', () => {
     it('calls OPTIONS exactly once even when two messages are sent concurrently', async () => {
       let optionsCallCount = 0;

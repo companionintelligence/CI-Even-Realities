@@ -8,7 +8,7 @@
 import type { BackendConfig } from '../config/Settings.ts';
 import type { AgentEvent } from './AgentEvent.ts';
 import { ChatCompletions } from './ChatCompletions.ts';
-import { ResponsesApi } from './ResponsesApi.ts';
+import { ResponsesApi, ResponsesApiError } from './ResponsesApi.ts';
 import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
 /**
@@ -25,6 +25,9 @@ const HUB_ROUTED_KINDS = new Set<BackendConfig['backendKind']>([
   'memory',
   'auto',
 ]);
+
+/** HTTP statuses that mean "this server has no such endpoint". */
+const ENDPOINT_MISSING_STATUSES = new Set([404, 405, 501]);
 
 export class ApiAdapter {
   private chatCompletions: ChatCompletions;
@@ -92,14 +95,40 @@ export class ApiAdapter {
     signal?.throwIfAborted();
 
     if (useResponses) {
-      yield* this.responsesApi.sendEvents(userText, signal);
-    } else {
-      const meta = {
-        ...(metadata ?? {}),
-        agent_kind: this.config.backendKind,
-      };
-      yield* this.chatCompletions.sendEvents(userText, signal, meta);
+      try {
+        yield* this.responsesApi.sendEvents(userText, signal);
+        return;
+      } catch (e) {
+        if (!this.isEndpointMissing(e)) throw e;
+        // The OPTIONS probe said the Responses API exists but the real POST
+        // says it doesn't. Servers with global CORS handling (agent-hub,
+        // Express `cors()`, …) answer a preflight 2xx for ANY path, so the
+        // probe cannot be trusted. ResponsesApiError is only thrown before any
+        // text is yielded, so retrying this turn on Chat Completions can't
+        // duplicate output. Remember it so later turns skip the dead endpoint.
+        this.responsesApiSupported = false;
+      }
     }
+
+    const meta = {
+      ...(metadata ?? {}),
+      agent_kind: this.config.backendKind,
+    };
+    yield* this.chatCompletions.sendEvents(userText, signal, meta);
+  }
+
+  /**
+   * Whether `e` means the Responses endpoint doesn't exist and we may retry on
+   * Chat Completions. Only in `auto` mode — an explicit `responses` choice must
+   * surface its error — and only for endpoint-missing statuses, so a real
+   * server failure (500, …) is never silently masked.
+   */
+  private isEndpointMissing(e: unknown): boolean {
+    return (
+      this.config.apiMode === 'auto' &&
+      e instanceof ResponsesApiError &&
+      ENDPOINT_MISSING_STATUSES.has(e.status)
+    );
   }
 
   /**

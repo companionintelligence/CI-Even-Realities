@@ -135,6 +135,21 @@ function selectAdapter(
   };
 }
 
+/**
+ * Paths `makeRouter` routes, ignoring the query string. Keep in step with the
+ * route table below: a preflight is only answered 204 for these.
+ */
+function isServedPath(rawUrl: string): boolean {
+  const path = rawUrl.split('?')[0] ?? '/';
+  return (
+    path === '/healthz' ||
+    path === '/v1/chat/completions' ||
+    path.startsWith('/v1/chat/completions/stream') ||
+    path === '/v1/audio/transcriptions' ||
+    /^\/v1\/sessions\/[^/]+\/(approve|cancel)$/.test(path)
+  );
+}
+
 export function makeRouter(deps: RouterDeps) {
   const verifier = deps.verifier ?? makePortalVerifier(deps.config);
   const { registry, defaultKind } = resolveRegistry(deps);
@@ -164,8 +179,17 @@ export function makeRouter(deps: RouterDeps) {
     );
 
     if (method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
+      // Only vouch for routes we serve. A blanket 204 made every path look
+      // like it existed to a client that probes with OPTIONS — the glasses
+      // app treats a 2xx preflight on /v1/responses as "Responses API
+      // supported", then its real POST 404s.
+      if (isServedPath(url)) {
+        res.writeHead(204);
+        res.end();
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+      }
       return;
     }
 
