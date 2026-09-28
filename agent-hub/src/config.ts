@@ -76,6 +76,12 @@ export interface HubConfig {
   ciServerMemoryPath: string;
   /** Turn write-back path used by memory augmentation (metadata.use_memory). */
   ciServerTurnPath: string;
+  /**
+   * Abort a CI-Server recall/turn-write-back call that hasn't responded
+   * within this long (ms). Guards against a hung CI-Server stalling a chat
+   * turn on recall, or leaking a socket on the fire-and-forget write-back.
+   */
+  ciServerTimeoutMs: number;
 
   // ── Speech-to-text proxy ──────────────────────────────────────────────────
   /**
@@ -157,6 +163,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     ciServerApiKey: env['CI_SERVER_API_KEY'] ?? env['CI_SERVER_TOKEN'] ?? '',
     ciServerMemoryPath: env['CI_SERVER_MEMORY_PATH'] ?? '/memory/recall',
     ciServerTurnPath: env['CI_SERVER_TURN_PATH'] ?? '/memory/turn',
+    ciServerTimeoutMs: Number(env['CI_SERVER_TIMEOUT_MS'] ?? 8_000),
     sttUrl: env['STT_URL'] ?? '',
     sttApiKey: env['STT_API_KEY'] ?? '',
   };

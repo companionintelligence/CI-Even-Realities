@@ -337,16 +337,26 @@ async function main(): Promise<void> {
         await renderer?.nextPage();
       }
 
-      // Foreground enter = long press start → begin recording
+      // Long-press start → begin recording. SDK ≥0.0.16 reports this natively
+      // via LONG_PRESS_EVENT; FOREGROUND_ENTER_EVENT is kept as a fallback for
+      // firmware/simulator paths that still route the gesture that way (see
+      // notes/even-realities-resources.md — simulator vs. hardware event
+      // routing quirks). handleMicStart() is idempotent, so if both fire for
+      // the same physical press this is a harmless no-op the second time.
       if (
+        sysEvt?.eventType === OsEventTypeList.LONG_PRESS_EVENT ||
+        textEvt?.eventType === OsEventTypeList.LONG_PRESS_EVENT ||
         sysEvt?.eventType === OsEventTypeList.FOREGROUND_ENTER_EVENT ||
         textEvt?.eventType === OsEventTypeList.FOREGROUND_ENTER_EVENT
       ) {
         await handleMicStart();
       }
 
-      // Foreground exit = long press release → stop recording
+      // Long-press release → stop recording. Same native-first, foreground
+      // fallback pairing as the start event above.
       if (
+        sysEvt?.eventType === OsEventTypeList.LONG_PRESS_RELEASE_EVENT ||
+        textEvt?.eventType === OsEventTypeList.LONG_PRESS_RELEASE_EVENT ||
         sysEvt?.eventType === OsEventTypeList.FOREGROUND_EXIT_EVENT ||
         textEvt?.eventType === OsEventTypeList.FOREGROUND_EXIT_EVENT
       ) {

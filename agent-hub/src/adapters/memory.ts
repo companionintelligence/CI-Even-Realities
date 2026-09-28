@@ -15,6 +15,9 @@
 
 import type { Adapter, ChatRequest, SessionContext } from './Adapter.ts';
 import type { AgentEvent } from '../events.ts';
+import { fetchWithTimeout } from '../fetchWithTimeout.ts';
+
+const DEFAULT_TIMEOUT_MS = 8_000;
 
 export interface MemoryOptions {
   /** CI-Server base URL (direct, e.g. http://<hub>:3030). */
@@ -29,6 +32,8 @@ export interface MemoryOptions {
   recallPath?: string;
   /** Max memories to recall per query. */
   maxResults?: number;
+  /** Abort the recall call after this long (ms). Default 8000. */
+  timeoutMs?: number;
 }
 
 export class MemoryAdapter implements Adapter {
@@ -54,19 +59,23 @@ export class MemoryAdapter implements Adapter {
     const url = `${this.opts.baseUrl.replace(/\/+$/, '')}${path}`;
     let res: Response;
     try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'x-api-key': this.opts.apiKey,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+      res = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            'x-api-key': this.opts.apiKey,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            query,
+            maxResults: this.opts.maxResults ?? 5,
+          }),
         },
-        body: JSON.stringify({
-          query,
-          maxResults: this.opts.maxResults ?? 5,
-        }),
-        signal: ctx.signal,
-      });
+        this.opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        ctx.signal
+      );
     } catch (e) {
       yield { type: 'error', message: `memory: ${(e as Error).message}` };
       return;

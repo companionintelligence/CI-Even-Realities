@@ -20,7 +20,7 @@
     "brand:sync": "node scripts/sync-brand.mjs"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.10",
+    "@evenrealities/even_hub_sdk": "^0.0.16",
     "@companionintelligence/tokens": "^1.0.0",
     "@fontsource-variable/manrope": "^5.2.0"
   },
