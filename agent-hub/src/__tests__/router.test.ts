@@ -101,6 +101,48 @@ describe('router', () => {
     });
   });
 
+  describe('CORS preflight only vouches for routes the hub serves', () => {
+    const preflight = (port: number, path: string) =>
+      fetch(`http://localhost:${port}${path}`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'http://localhost:5174',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type,authorization',
+        },
+      });
+
+    it.each([
+      '/healthz',
+      '/v1/chat/completions',
+      '/v1/chat/completions/stream?session=abc',
+      '/v1/audio/transcriptions',
+      '/v1/sessions/abc-123/approve',
+      '/v1/sessions/abc-123/cancel',
+    ])('answers 204 for %s', async (path) => {
+      const router = makeRouter({ config: BASE_CFG, adapter: new FakeAdapter() });
+      await withServer(router, async (port) => {
+        expect((await preflight(port, path)).status).toBe(204);
+      });
+    });
+
+    // The glasses app decides between Chat Completions and the Responses API by
+    // sending OPTIONS to /v1/responses and treating any 2xx as "supported". A
+    // hub that 204s every path made that probe lie, and the first real
+    // POST /v1/responses then 404'd.
+    it.each(['/v1/responses', '/v1/models', '/nope', '/v1/sessions/abc/unknown'])(
+      'answers 404 for %s, which the hub does not serve',
+      async (path) => {
+        const router = makeRouter({ config: BASE_CFG, adapter: new FakeAdapter() });
+        await withServer(router, async (port) => {
+          const r = await preflight(port, path);
+          expect(r.status).toBe(404);
+          expect(await r.json()).toEqual({ error: 'not_found' });
+        });
+      }
+    );
+  });
+
   it('rejects requests without bearer token when one is configured', async () => {
     const adapter = new FakeAdapter();
     const router = makeRouter({

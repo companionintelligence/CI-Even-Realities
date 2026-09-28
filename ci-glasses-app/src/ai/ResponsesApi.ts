@@ -10,6 +10,22 @@ import type { AgentEvent } from './AgentEvent.ts';
 import { parseSSEEvents } from './StreamParser.ts';
 import { authedFetch, type TokenProvider } from '../auth/TokenProvider.ts';
 
+/**
+ * A non-2xx answer from `POST /v1/responses`. Carries the HTTP status so
+ * callers can tell "this server has no such endpoint" (404/405/501) from a
+ * real failure without parsing the message. Only ever thrown before any text
+ * has been yielded.
+ */
+export class ResponsesApiError extends Error {
+  constructor(
+    readonly status: number,
+    body: string
+  ) {
+    super(`Responses API error ${status}: ${body}`);
+    this.name = 'ResponsesApiError';
+  }
+}
+
 export class ResponsesApi {
   private previousResponseId?: string;
 
@@ -43,10 +59,10 @@ export class ResponsesApi {
         response = await this.postResponse(userText, signal);
         if (!response.ok) {
           const retryErrText = await response.text().catch(() => '');
-          throw new Error(`Responses API error ${response.status}: ${retryErrText}`);
+          throw new ResponsesApiError(response.status, retryErrText);
         }
       } else {
-        throw new Error(`Responses API error ${response.status}: ${errText}`);
+        throw new ResponsesApiError(response.status, errText);
       }
     }
 
