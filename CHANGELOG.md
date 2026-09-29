@@ -49,6 +49,27 @@ via its own `package.json` / Docker tag.
   with the two paths that actually apply now (local `wrangler deploy`, or
   the GitHub Actions workflow).
 
+## [0.5.1] — Responses-API fallback fix, refreshed store screenshots
+
+### Fixed
+
+- **"Responses API error 404" against `agent-hub` and other OpenAI-compatible
+  servers.** In `auto` API mode the app probed `OPTIONS /v1/responses` and
+  treated any 2xx as "supported", but servers with global CORS handling answer
+  a preflight 2xx for *every* path, so it picked an endpoint that doesn't exist
+  and every message failed. `ApiAdapter` now retries the turn on Chat
+  Completions when the real request returns 404/405/501 (and remembers it); real
+  errors and an explicit `responses` mode still surface. `agent-hub` also
+  answers preflight 204 only for routes it serves. Found running the app in the
+  Even Hub simulator against the hub.
+- Docs said the default OIDC client is `ci-hub`; it is `ci-even`.
+
+### Changed
+
+- Store-listing screenshots recaptured on the current sage brand (the previous
+  set predated the canon migration). Dropped `07-beta1-settings.png`, which
+  showed a private Tailscale address.
+
 ## [0.5.0] — Even Hub SDK 0.0.16, native long-press, CI-Server hardening
 
 ### Changed

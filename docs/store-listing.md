@@ -12,7 +12,7 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 |---|---|
 | **App name** | CI Companion |
 | **Package id** | `com.companionintelligence.ciglasses` |
-| **Version** | `0.4.0` |
+| **Version** | `0.5.1` |
 | **Categories** | Productivity · Developer Tools |
 | **Supported languages** | English (`en`) |
 | **Support URL** | <https://github.com/companionintelligence/CI-Even-Realities> |
@@ -60,22 +60,25 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 
 ## Screenshots (`ci-glasses-app/assets/screenshots/`)
 
+Recaptured for 0.5.1 on the current sage brand (see [`../PUBLISHING.md`](../PUBLISHING.md#how-the-screenshots-were-captured) for how).
+
 | File | What it shows |
 |---|---|
 | `01-empty-quick-actions.png` | Empty Chat tab — hero, quick-action chips, mic button |
 | `02-hud-ready.png` | G2 HUD "CI Companion ready" |
-| `03-settings.png` | Settings — Backend Kind card grid |
+| `03-settings.png` | Settings — Account sign-in and CI-Hub quick-connect |
 | `04-hud-prompt.png` | Permission-prompt card on the HUD |
-| `05-hud-stream-ollama.png` | Live streamed answer paginated on the HUD |
-| `06-chat-with-response.png` | Full webview mid-stream with glasses preview |
-| `07-beta1-settings.png` | Settings pointed at a Tailscale hub |
+| `05-hud-stream.png` | Streamed answer paginated on the HUD |
+| `06-chat-with-response.png` | Full webview after a streamed answer, with glasses preview |
 
-> **To refresh for 0.4.0:** capture the new **Account** section (signed-out
-> "Sign in with Companion Intelligence" + signed-in identity) and the **CI-Hub**
-> quick-connect. See the demo bootstraps (`?screen=settings`) in
-> [`../PUBLISHING.md`](../PUBLISHING.md).
+## Release notes — 0.5.1
 
-## Release notes — 0.4.0
+- Fixed: pointing the app at a self-hosted or OpenAI-compatible server that has no Responses API (an `agent-hub`, or many local servers) no longer fails with "Responses API error 404" — the app now falls back to Chat Completions automatically.
+- Native G2 touchbar long-press now starts and stops recording directly (Even Hub SDK 0.0.16).
+- More resilient streaming, HUD writes, and CI-Server memory calls: a slow or unreachable backend can no longer stall a turn indefinitely.
+- Refreshed store screenshots to match the current design.
+
+## Release notes — 0.4.0 (previous)
 
 - Added "Sign in with Companion Intelligence" (CI-Portal OIDC, Authorization-Code + PKCE).
 - Added CI-Hub quick-connect presets (Ollama / Hermes / OpenClaw).

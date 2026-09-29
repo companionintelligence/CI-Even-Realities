@@ -73,7 +73,7 @@ Next steps for testing and development of `ci-even-realities`.
 
 ### Distribution
 
-- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal. The description/copy is drafted (`PUBLISHING.md`); the `ci-glasses-app/assets/screenshots/` set needs recapturing first — it predates the sage brand migration (see the stale-brand warning in `PUBLISHING.md`).
+- [ ] **Even Hub store listing** — create a proper app listing with screenshots and description for the Even Hub portal. The description/copy is drafted (`docs/store-listing.md`) and the screenshot set was recaptured on the current sage brand for 0.5.1. Still open: `evenhub login` and the manual upload at the portal (see `PUBLISHING.md`).
 - [ ] **Version tagging** — establish a semantic versioning convention and automate version bumps via CI.
 - [x] **Changelog** — [`CHANGELOG.md`](CHANGELOG.md) now tracks notable changes between releases, starting at `0.5.0`.
 - [x] **Public setup/connect page** — [`er-connect/`](er-connect/) is live at [er.ci.computer](https://er.ci.computer) (install, backend connect steps, manual config, supported backend kinds, and CI-Portal sign-in with auto-connect). Deployed as a Cloudflare Worker with static assets (not classic Pages — see `er-connect/README.md`'s Deploy section for why), config committed in `er-connect/wrangler.jsonc`. Still open: `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repo secrets aren't set, so [`deploy-er-connect.yml`](.github/workflows/deploy-er-connect.yml) can't redeploy from CI yet — redeploys need `wrangler deploy` run locally by someone with account access until then.

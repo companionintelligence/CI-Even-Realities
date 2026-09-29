@@ -18,16 +18,16 @@ npm run pack:ehpk       # builds + produces ci-companion.ehpk
 
 ## Pre-flight checklist
 
-- [ ] `npm test` passes (currently 172 tests)
+- [ ] `npm test` passes (currently 179 tests)
 - [ ] `npm run typecheck` clean
 - [ ] `npm run build` produces `dist/` with `index.html`, JS, CSS
-- [ ] `app.json` version bumped (semver) — currently `0.5.0`
+- [ ] `app.json` version bumped (semver) — currently `0.5.1`
 - [ ] Backend URL field in Settings defaults to a sensible value (today: `http://localhost:8080`)
 - [ ] `permissions.network.whitelist` is `["*"]` so users can point at their own hub / Ollama / OpenAI URLs **and reach CI-Portal for OIDC sign-in**
 - [ ] "Sign in with Companion Intelligence" (CI-Portal OIDC) reaches the configured issuer; signed-out API-key mode still works
 - [ ] CI-Hub quick-connect fills a valid Ollama/Hermes/OpenClaw backend from a Hub base URL
 - [ ] Manually smoke-tested in the Even Hub simulator against at least one live backend (recommend Ollama)
-- [ ] Store-listing screenshots recaptured on the current brand (see the stale-brand warning under "Screenshots already captured" below) — not yet done
+- [x] Store-listing screenshots recaptured on the current brand (0.5.1 set — see "Screenshots" below)
 
 ---
 
@@ -40,7 +40,7 @@ The portal validates `app.json` against a fixed schema. The current file is:
   "package_id": "com.companionintelligence.ciglasses",
   "edition": "202601",
   "name": "CI Companion",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "min_app_version": "2.2.10",
   "min_sdk_version": "0.0.16",
   "entrypoint": "index.html",
@@ -174,28 +174,18 @@ Use this as the starting point — the portal accepts plain text + images.
 - `icon-512.png`, `icon-192.png`, `icon-128.png`, `icon-64.png` — derived sizes
 - `icon-512.png` is also bundled inside the `.ehpk` at `dist/icon.png`
 
-**Screenshots already captured** (in `ci-glasses-app/assets/screenshots/`):
-
-> ⚠️ **Stale brand alert.** These seven screenshots predate the CI-Common
-> canon 1.0 migration (`d4b7d2a`, `9244b1a`) — they show the app's original
-> bright-green accent, not the current sage `--primary` (`#c5e8dc`) used
-> everywhere else today (compare against `docs/ui/glasses-chat-dark.png` /
-> `glasses-settings-dark.png`, which *are* current). Submitting the store
-> listing with this set would show a UI that doesn't match what installs.
-> Recapture all seven from a current build before the next portal upload —
-> see `docs/dev-setup.md` for the simulator workflow. Nothing in this
-> session could do it (no simulator/device access here), so it's flagged
-> here rather than silently left stale.
+**Screenshots** (in `ci-glasses-app/assets/screenshots/`) — recaptured 2026-09-28 from the 0.5.1 build (`vite build`, served with `vite preview`) on the current sage brand, replacing the earlier set that predated the canon migration. `05`/`06` stream a fixed, accurate answer from a small deterministic OpenAI-compatible mock (word by word, exactly like a real backend) so they are reproducible; everything else is the app as-is. The old `07-beta1-settings.png` is gone on purpose — it showed a private Tailscale address.
 
 | File | What it shows | Source |
 |---|---|---|
-| `01-empty-quick-actions.png` | Empty Chat tab — icon mark, "Ready when you are" hero, 5 quick-action chips, system pill, GLASSES DISPLAY pane, polished SVG mic button | simulator webview |
+| `01-empty-quick-actions.png` | Empty Chat tab — CI mark, "Ready when you are" hero, quick-action chips, "Connected to Even G2" pill, GLASSES DISPLAY pane, mic dock | simulator webview |
 | `02-hud-ready.png` | G2 HUD showing "CI Companion ready" startup status | simulator glasses |
-| `03-settings.png` | Settings tab with the **Backend Kind card grid** (Local LLM active), card hints visible | simulator webview |
-| `04-hud-prompt.png` | Permission-prompt card on the HUD — tool name, summary, "tap: Approve  2x: Deny" footer | simulator glasses |
-| `05-hud-stream-ollama.png` | Real `qwen2.5:0.5b` answer paginated on the HUD with "[1/2]" indicator, streamed through beta-1 over Tailscale | simulator glasses |
-| `06-chat-with-response.png` | Full polished webview mid-stream: connected pill, model badge, user bubble (gradient green), assistant bubble (dark surface), live GLASSES DISPLAY preview with scan-line overlay | simulator webview |
-| `07-beta1-settings.png` | Settings showing Backend URL `http://100.124.211.75:8787` (beta-1 via Tailscale) — proves the deploy chain | simulator webview |
+| `03-settings.png` | Settings tab — Account ("Sign in with Companion Intelligence") and CI-Hub quick-connect (Assistant / Ollama / Hermes / OpenClaw / Memory) | simulator webview |
+| `04-hud-prompt.png` | Permission-prompt card on the HUD — tool name, summary, tap/double-tap footer | simulator glasses |
+| `05-hud-stream.png` | A streamed answer paginated on the HUD | simulator glasses |
+| `06-chat-with-response.png` | Full webview after a streamed answer: user bubble, assistant bubble, live GLASSES DISPLAY preview | simulator webview |
+
+To recapture, run the simulator against a built app (`npm run build && npm run preview -- --port 5173`) with `--automation-port 9898` and fetch `/api/screenshot/{glasses,webview}` (one fresh simulator launch per shot; the webview snapshot only works while the window is frontmost). Sizes are 1200×1544 (webview) and 576×288 (glasses).
 
 **Optional extras** (capture only if you want extra polish):
 - agent-hub terminal output (for the developer story)
@@ -228,7 +218,7 @@ curl -o glasses.png http://localhost:9898/api/screenshot/glasses
 curl -o webview.png http://localhost:9898/api/screenshot/webview
 ```
 
-**Note on networking**: the Tauri webview inside the simulator can reach a LAN IP (`192.168.x.y:8787`) but not `localhost` of the host. Use your machine's LAN IP when pointing at the hub from the simulator. The agent-hub now sends permissive CORS headers so the webview's preflight passes.
+**Note on networking**: with simulator 0.7.3 the Tauri webview reaches the host's `localhost` fine (verified streaming through `http://localhost:8787`), so `baseUrl=http://localhost:8787` works. If a future simulator build blocks loopback, use your machine's LAN IP (`192.168.x.y:8787`) instead — the hub binds loopback only by default, so that also needs `HUB_BIND=0.0.0.0` + `HUB_TOKEN`. The agent-hub sends permissive CORS headers so the webview's preflight passes.
 
 **Support URL:** <https://github.com/companionintelligence/CI-Even-Realities>
 
