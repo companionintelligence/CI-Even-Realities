@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#060606" />
+    <meta name="theme-color" content="#041620" />
     <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,34 +18,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon.png" />
-    <style>
-      /* Inline splash so it paints before main.css loads. */
-      html, body { margin: 0; height: 100%; background: #060606; color: #f0f0f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-      #splash {
-        position: fixed; inset: 0; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 18px;
-        background: #060606; z-index: 100;
-      }
-      #splash svg { width: 96px; height: 96px; filter: drop-shadow(0 0 24px rgba(171,212,216,0.45)); animation: sp 1.6s ease-in-out infinite; }
-      #splash .t { font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #b4b4b4; }
-      #splash .s { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #7a7a7a; }
-      @keyframes sp { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.04); opacity: 0.85 } }
-      body.ready #splash { animation: sout 380ms forwards; }
-      @keyframes sout { to { opacity: 0; visibility: hidden } }
-    </style>
   </head>
   <body>
     <div id="splash" role="status" aria-label="Loading">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="2" y="2" width="96" height="96" rx="20" fill="#0a0a0a"/>
-        <!-- Outer C arc -->
-        <path d="M 50 17 A 33 33 0 1 0 83 50" fill="none" stroke="#c5e8dc" stroke-width="6" stroke-linecap="round"/>
-        <!-- Companion ring -->
-        <circle cx="68" cy="50" r="13" fill="none" stroke="#c5e8dc" stroke-width="6"/>
-        <circle cx="68" cy="50" r="3.5" fill="#c5e8dc"/>
-      </svg>
-      <div class="t">CI Companion</div>
-      <div class="s">connecting…</div>
+      <img class="splash__mark" src="/icon.png" alt="" width="96" height="96" />
+      <div class="splash__title">CI Companion</div>
+      <div class="splash__sub">connecting…</div>
     </div>
     <div id="app"></div>
     <script type="module" src="/src/Main.ts"></script>

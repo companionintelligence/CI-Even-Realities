@@ -28,7 +28,7 @@ The default tab and landing surface. Shows the CI Companion mark, quick-prompt s
 
 The configuration tab. The **Account** card offers **Sign in with Companion Intelligence** (CI-Portal OIDC) and shows the signed-in identity; the **CI-Hub** card is a one-tap quick-connect (Ollama / Hermes / OpenClaw) derived from your Hub base URL. Below them, the **AI Backend** card selects the Backend Kind (Local LLM, OpenAI-like, Claude Code, Codex CLI, OpenClaw) and holds Backend URL, API Key, Model, API Mode, and Streaming, followed by the **System Prompt**, **Speech-to-Text**, **Text-to-Speech**, and **Reset** sections. Token/session state persists through device-backed bridge storage (localStorage in the simulator). The sage `--primary` accent marks the active tab and the selected backend card.
 
-<img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: AI Backend kind picker with the CI sage accent on the selected card, plus System Prompt, STT, TTS, and Reset sections" width="380">
+<img src="docs/ui/glasses-settings-dark.png" alt="CI Companion — Settings tab: Account sign-in (Sign in with Companion Intelligence) and CI-Hub quick-connect presets on Companion teal-navy cards" width="380">
 
 ### HUD overlays (native runtime only)
 
