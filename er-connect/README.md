@@ -163,9 +163,9 @@ normal browser window (not a private window if you want step 7 to work).
    Local Storage → `https://er.ci.computer` there is an
    `er-connect:oidc-tokens` entry.
 6. **Enter your Hub host** (for example `ci-hub.local` or `192.168.1.50`) and
-   click **Connect**. Expect the **Saved … Browsers can't test a plain-http
-   host from this page** note, *not* a green "Connected" and not a red
-   "Unreachable". This is expected: an agent-hub is plain `http://<host>:8787`
+   click **Connect**. Expect a **Saved http://<host>:8787 — not verified** pill
+   with a note under it (*Browsers can't test a plain-http host from this page*),
+   *not* a green "Connected" and not a red "Unreachable". This is expected: an agent-hub is plain `http://<host>:8787`
    and browsers refuse plain-http requests from an https page (mixed content),
    so er.ci.computer cannot check it. A hub served over `https://` gets a real
    green/red result. The host is remembered either way.
