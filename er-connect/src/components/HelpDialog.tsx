@@ -175,6 +175,16 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                     the next send.
                   </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="cant-verify">
+                  <AccordionTrigger>Connect says "Saved… can't test a plain-http host"</AccordionTrigger>
+                  <AccordionContent>
+                    That's expected, not an error. Your hub's <code>agent-hub</code> is plain{' '}
+                    <code>http://host:8787</code>, and browsers won't make plain-http requests
+                    from an https page, so this page can't check it. The host is saved — open CI
+                    Companion in the Even app, go to Settings → CI-Hub, and tap a Quick connect
+                    preset to verify the connection for real.
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="stuck">
                   <AccordionTrigger>Still stuck?</AccordionTrigger>
                   <AccordionContent>
