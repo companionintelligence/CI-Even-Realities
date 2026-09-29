@@ -1,105 +1,68 @@
 /**
  * styles.css
  *
- * CI Companion phone WebView — Even Realities G2 aesthetic.
- * Dark surface, phosphor-green accent, generous whitespace, glanceable
- * typography. Follows the Even Realities 2026 UIUX guidelines for spacing,
- * 8-pt grid, and minimal chrome.
- */
-
-/**
- * Canonical shadcn token layer (alias).
+ * CI Companion phone WebView — a dark-only Companion Intelligence surface.
  *
- * Source of truth: @companionintelligence/tokens (CI-Common styles/tokens/src/tokens.json —
- * the ONE hand-edited token file; CI-Hub imports the same package). Its tokens.css is
- * imported first, so this HUD — a dark, offline, hardware-constrained surface (G2
- * MicroLED) — starts from the canon and overrides only what the panel needs. The
- * bespoke --color-* variables below alias onto the canon names, so the HUD consumes
- * canonical tokens (--primary, --accent, …) while every existing rule keeps working.
- * --primary is the canon sage #c5e8dc; the #abd4d8 teal was retired at tokens v0.3.0.
+ * Every colour, surface and radius comes from the canon
+ * (@companionintelligence/tokens); nothing from it is re-declared here. index.html puts
+ * class="dark" on <html>, which selects tokens.css's `.dark` block, so this surface
+ * follows the canon automatically when it moves. A hand-copied token block is exactly the
+ * drift CI-Common's CONSUMING.md forbids, and it is what made this UI read as generic
+ * near-black instead of Companion teal-navy.
  *
- * oklch values carry an inline hex comment for reviewer legibility.
+ * The `--color-*` names below are kept as thin aliases onto canon tokens so the existing
+ * rules keep working; layout/motion variables are local.
+ *
+ * The one deliberate non-canon surface is the GLASSES DISPLAY preview (`.glasses-preview`),
+ * which imitates the G2 MicroLED panel — pure black with phosphor text — because that is
+ * what the glasses actually show. That divergence is documented in CI-Common's
+ * UI-STYLE-GUIDE §11 (Even-Realities G2 HUD).
  */
-/* the canon token layer (all modes); this surface is dark-only — see the .dark note below */
 @import "@companionintelligence/tokens/tokens.css";
 
 :root {
-  --background: oklch(0.1901 0.0321 234.379); /* #041620 */
-  --foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
-  --card: oklch(0.2394 0.0375 233.156); /* #0a222e */
-  --card-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
-  --popover: oklch(0.2394 0.0375 233.156); /* #0a222e */
-  --popover-foreground: oklch(0.6911 0.0296 185.201); /* #88a29e */
-  --primary: #c5e8dc; /* canon dark primary (sage) */
-  --primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
-  --secondary: oklch(0.2394 0.0375 233.156); /* #0a222e */
-  --secondary-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --muted: oklch(0.2394 0.0375 233.156); /* #0a222e */
-  --muted-foreground: oklch(0.6760 0.0193 253.397); /* #8f98a3 */
-  --accent: oklch(0.4775 0.0615 204.345); /* #2c676d */
-  --accent-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --destructive: oklch(0.6964 0.1573 21.990); /* #ef7070 */
-  --destructive-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --border: oklch(0.4775 0.0615 204.345); /* #2c676d */
-  --input: oklch(0.6357 0.0509 224.103); /* #6992a2 */
-  --ring: oklch(0.8497 0.1407 169.678); /* #58ebbf */
-  --chart-1: oklch(0.8497 0.1407 169.678); /* #58ebbf */
-  --chart-2: oklch(0.6355 0.0856 195.215); /* #409b9b */
-  --chart-3: oklch(0.6292 0.1072 191.566); /* #079d99 */
-  --chart-4: oklch(0.6907 0.0582 208.988); /* #70a6af */
-  --chart-5: oklch(0.4775 0.0615 204.345); /* #2c676d */
-  --sidebar: oklch(0.1901 0.0321 234.379); /* #041620 */
-  --sidebar-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --sidebar-primary: var(--primary); /* tracks --primary since tokens v0.3.0 */
-  --sidebar-primary-foreground: oklch(0.1901 0.0321 234.379); /* #041620 */
-  --sidebar-accent: oklch(0.2799 0.0408 260.329); /* #1d293d */
-  --sidebar-accent-foreground: oklch(0.9774 0.0042 236.496); /* #f5f8fa */
-  --sidebar-border: oklch(0.4775 0.0615 204.345); /* #2c676d */
-  --sidebar-ring: oklch(0.8497 0.1407 169.678); /* #58ebbf */
-  --radius: 0.625rem;
-}
+  /* Surfaces — the canon --ci-* app surfaces that tokens.css (the vanilla-CSS layer)
+     ships. The richer --ci-surface-1/2/3 + --ci-border-0..3 ramp lives only in the
+     Tailwind-flavoured globals.css, which this build does not import, so it is NOT
+     used here (theme-tokens.test.ts fails on any var() nothing defines). */
+  --color-bg:           var(--ci-bg);                /* page: teal-navy */
+  --color-surface:      var(--ci-card);              /* cards, status bar, bubbles */
+  --color-surface-alt:  var(--ci-bg-deep);           /* wells / inputs inside a card */
+  --color-surface-hi:   var(--ci-surface);           /* hover / raised */
+  --color-border:       var(--ci-border);
+  --color-border-hi:    color-mix(in srgb, var(--primary) 28%, transparent);  /* sage hairline */
 
-:root {
-  /* Surface palette */
-  --color-bg:           #060606;
-  --color-surface:      #111111;
-  --color-surface-alt:  #181818;
-  --color-surface-hi:   #1f1f1f;
-  --color-border:       #262626;
-  --color-border-hi:    #353535;
-
-  /* CI canon primary (dark HUD): sage #c5e8dc via --primary; #abd4d8 was retired at tokens v0.3.0.
-     These alias onto the canon token layer above: the accent IS the dark
-     --primary, and its foreground IS --primary-foreground (both #041620). */
-  --color-accent:       var(--primary);              /* #c5e8dc */
-  --color-accent-fg:    var(--primary-foreground);   /* #041620 */
-  --color-accent-soft:  rgba(171, 212, 216, 0.18);
-  --color-accent-dim:   #5c8f94;
-  --color-accent-glow:  rgba(171, 212, 216, 0.45);
+  /* Accent — the canon dark primary (sage) */
+  --color-accent:       var(--primary);
+  --color-accent-fg:    var(--primary-foreground);
+  --color-accent-soft:  color-mix(in srgb, var(--primary) 16%, transparent);
+  --color-accent-dim:   var(--teal-mid);
+  --color-accent-glow:  color-mix(in srgb, var(--primary) 40%, transparent);
 
   /* Type */
-  --color-text:         #f0f0f0;
-  --color-text-soft:    #b4b4b4;
-  --color-text-muted:   #7a7a7a;
-  --color-text-faint:   #4a4a4a;
+  --color-text:         var(--ci-text);
+  --color-text-soft:    var(--ci-text-soft);
+  --color-text-muted:   var(--ci-text-muted);
+  --color-text-faint:   color-mix(in srgb, var(--ci-text-muted) 55%, transparent);
 
-  /* State */
-  --color-error:        #ff5a5a;
-  --color-warning:      #ffba3a;
-  --color-success:      var(--color-accent);
+  /* State — canon status tokens */
+  --color-error:        var(--destructive);
+  --color-warning:      var(--warning);
+  --color-success:      var(--success);
+  --color-success-bg:     color-mix(in srgb, var(--success) 14%, transparent);
+  --color-success-border: color-mix(in srgb, var(--success) 32%, transparent);
+  --color-danger-bg:      color-mix(in srgb, var(--destructive) 12%, transparent);
+  --color-danger-border:  color-mix(in srgb, var(--destructive) 28%, transparent);
 
-  /* Type system — Manrope per CI canonical style guide, with system fallback.
-     "Manrope Variable" is the family @fontsource-variable/manrope registers
-     (see Main.ts import); "Manrope" retained for a statically-installed fallback. */
-  --font-sans:  "Manrope Variable", "Manrope", "Inter", -apple-system,
+  /* Type system — Manrope per the CI style guide. "Manrope Variable" is the family
+     @fontsource-variable/manrope registers (see Main.ts); "Manrope" is kept for a
+     statically-installed fallback. Overrides the canon --font-sans stack only to add it. */
+  --font-sans:  "Manrope Variable", "Manrope", system-ui, -apple-system,
                 BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono:  "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas,
                 monospace;
 
-  /* --radius (0.625rem = 10px) is defined in the canon token layer above. */
-  --radius-sm:  6px;
-  --radius-lg:  14px;
-  --radius-xl:  18px;
+  /* Radii come from the canon scale (--radius, --radius-sm, --radius-lg). */
   --spacing:    16px;
   --pad-page:   18px;
 
@@ -108,54 +71,6 @@
 
   --tx-fast: 120ms ease-out;
   --tx-mid:  220ms cubic-bezier(.2,.7,.3,1);
-}
-
-/* ─── CI enriched palette v0.2.0 ─────────────────────────────────────────────
-   Additive tokens matching @companionintelligence/tokens v0.2.0. Nothing above
-   is modified — --primary and the existing --radius-* scale are untouched.
-   This HUD is a DARK-ONLY surface, so BASE and DARK live together in one scope;
-   there is no light scope. --radius-sm / --radius-lg / --radius-xl are
-   intentionally OMITTED from the enriched radius set because they already exist
-   above with bespoke pixel values; overriding them would change existing
-   component rendering (this must stay additive). The new --radius-md and
-   --radius-2xl are added, and the radius-* fallbacks resolve against --radius
-   (0.625rem) from the canon layer. */
-:root {
-  /* enriched — brand teal ramp + accent hues (mode-independent) */
-  --teal-50:  #eef7f8;
-  --teal-100: #d3e9ec;
-  --teal-200: #abd4d8;
-  --teal-300: #7fbcc2;
-  --teal-400: #4c9aa3;
-  --teal-500: #1c8791;
-  --teal-600: #0f717a;
-  --teal-700: #0d5f67;
-  --teal-800: #0e4a52;
-  --teal-900: #0a222e;
-  --teal-950: #041620;
-  --aqua:        #00a9a7;
-  --aqua-light:  #72ddd4;
-  --mint:        #58ebbf;
-  --teal-accent: #2c676d;
-  --teal-mid:    #409b9b;
-
-  /* enriched — radius scale (mode-independent; sm/lg/xl kept from layer above) */
-  --radius-md:  calc(var(--radius, 0.625rem) - 2px);
-  --radius-2xl: calc(var(--radius, 0.625rem) + 10px);
-
-  /* enriched — semantic status + gradients + elevation (dark) */
-  --success:            #4ade80;
-  --success-foreground: #052e16;
-  --warning:            #fbbf24;
-  --warning-foreground: #422006;
-  --info:               #38bdf8;
-  --info-foreground:    #082f49;
-  --gradient-brand:  linear-gradient(135deg, #0f717a, #00a9a7);
-  --gradient-hero:   linear-gradient(135deg, #e8f9f8, #abd4d8);
-  --gradient-aurora: radial-gradient(120% 90% at 50% -10%, rgba(64, 155, 155, .28), transparent 60%);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, .35);
-  --shadow-lg: 0 12px 30px rgba(0, 0, 0, .45);
 }
 
 * {
@@ -175,6 +90,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overscroll-behavior: none;
+  color-scheme: dark;
 }
 
 #app {
@@ -183,10 +99,7 @@ html, body {
   height: 100%;
   max-width: 520px;
   margin: 0 auto;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%,
-      rgba(171, 212, 216, 0.06), transparent 60%),
-    var(--color-bg);
+  background: var(--gradient-aurora), var(--color-bg);
 }
 
 button { font-family: inherit; }
@@ -199,8 +112,9 @@ textarea:focus-visible {
 }
 
 /* ─── Splash ────────────────────────────────────────────────────────────────── */
+/* Markup is in index.html; Main.ts adds body.ready on first paint to dismiss it. */
 
-.splash {
+#splash {
   position: fixed;
   inset: 0;
   background: var(--color-bg);
@@ -210,25 +124,26 @@ textarea:focus-visible {
   justify-content: center;
   gap: 18px;
   z-index: 100;
-  animation: splash-out 380ms 400ms forwards;
 }
-.splash__mark {
+#splash .splash__mark {
   width: 96px;
   height: 96px;
+  border-radius: 22%;
   filter: drop-shadow(0 0 24px var(--color-accent-glow));
   animation: splash-pulse 1.6s ease-in-out infinite;
 }
-.splash__title {
+#splash .splash__title {
   font-size: 16px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-text-soft);
 }
-.splash__sub {
+#splash .splash__sub {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-text-muted);
 }
+body.ready #splash { animation: splash-out 380ms forwards; }
 @keyframes splash-pulse {
   0%, 100% { transform: scale(1);    opacity: 1;   }
   50%      { transform: scale(1.04); opacity: 0.85; }
@@ -413,13 +328,13 @@ textarea:focus-visible {
 }
 .message--user {
   align-self: flex-end;
-  background: linear-gradient(180deg, #c5e8dc 0%, #5c8f94 100%);
-  color: #041620;
+  background: linear-gradient(180deg, var(--ci-accent-2), var(--primary));
+  color: var(--primary-foreground);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset;
+  box-shadow: 0 1px 0 color-mix(in srgb, white 10%, transparent) inset;
   font-weight: 500;
 }
-.message--user .message__timestamp { color: rgba(11, 31, 16, 0.55); }
+.message--user .message__timestamp { color: color-mix(in srgb, var(--primary-foreground) 60%, transparent); }
 .message--assistant {
   align-self: flex-start;
   background: var(--color-surface-alt);
@@ -487,18 +402,20 @@ textarea:focus-visible {
 .mic-btn:hover     { border-color: var(--color-accent-dim); }
 .mic-btn:active    { transform: scale(0.96); }
 .mic-btn--recording {
-  background: radial-gradient(circle at 30% 30%, #ff7878, #c83434);
+  background: radial-gradient(circle at 30% 30%,
+    color-mix(in srgb, var(--destructive) 70%, white), var(--destructive));
   border-color: var(--color-error);
-  box-shadow: 0 0 0 0 rgba(255, 90, 90, 0.6);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--destructive) 60%, transparent);
   animation: mic-pulse 1.4s ease-out infinite;
 }
 @keyframes mic-pulse {
-  0%   { box-shadow: 0 0 0 0   rgba(255, 90, 90, 0.55); }
-  70%  { box-shadow: 0 0 0 18px rgba(255, 90, 90, 0);    }
-  100% { box-shadow: 0 0 0 0   rgba(255, 90, 90, 0);     }
+  0%   { box-shadow: 0 0 0 0   color-mix(in srgb, var(--destructive) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 18px transparent; }
+  100% { box-shadow: 0 0 0 0   transparent;  }
 }
 .mic-btn--processing {
-  background: radial-gradient(circle at 30% 30%, #ffd072, #d18a18);
+  background: radial-gradient(circle at 30% 30%,
+    color-mix(in srgb, var(--warning) 70%, white), var(--warning));
   border-color: var(--color-warning);
 }
 .chat-hint {
@@ -644,8 +561,8 @@ textarea:focus-visible {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:not(:disabled):active { transform: scale(0.98); }
 .btn--primary {
-  background: linear-gradient(180deg, #c5e8dc, #5c8f94);
-  color: #041620;
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-weight: 600;
 }
 .btn--secondary {
@@ -655,9 +572,9 @@ textarea:focus-visible {
 }
 .btn--secondary:hover:not(:disabled) { border-color: var(--color-accent-dim); }
 .btn--danger {
-  background: rgba(255, 90, 90, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-error);
-  border: 1px solid var(--color-error);
+  border: 1px solid var(--color-danger-border);
 }
 .btn--full { width: 100%; }
 
@@ -671,14 +588,14 @@ textarea:focus-visible {
   white-space: pre-line;
 }
 .connection-result--ok {
-  background: rgba(171, 212, 216, 0.08);
-  color: var(--color-success);
-  border: 1px solid var(--color-accent-dim);
+  background: var(--color-success-bg);
+  color: var(--ci-success);
+  border: 1px solid var(--color-success-border);
 }
 .connection-result--error {
-  background: rgba(255, 90, 90, 0.08);
-  color: var(--color-error);
-  border: 1px solid var(--color-error);
+  background: var(--color-danger-bg);
+  color: var(--ci-danger);
+  border: 1px solid var(--color-danger-border);
 }
 
 /* Account / OIDC sign-in status */
@@ -690,9 +607,9 @@ textarea:focus-visible {
   border: 1px solid var(--color-border-hi);
 }
 .account-status--in {
-  background: rgba(171, 212, 216, 0.08);
-  color: var(--color-success);
-  border-color: var(--color-accent-dim);
+  background: var(--color-success-bg);
+  color: var(--ci-success);
+  border-color: var(--color-success-border);
 }
 .account-status--out {
   background: var(--color-surface-alt);
@@ -716,7 +633,7 @@ textarea:focus-visible {
 /* Glasses preview */
 .glasses-preview-wrapper { padding: 0 var(--pad-page) 8px; }
 .glasses-preview {
-  background: #000;
+  background: #000; /* intentional: imitates the G2 MicroLED panel, which is pure black */
   border: 1.5px solid var(--color-accent-dim);
   border-radius: var(--radius);
   padding: 14px 16px;

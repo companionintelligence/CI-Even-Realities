@@ -8,7 +8,7 @@ Tracking doc for the refactor that lets the CI Glasses app drive **any local age
 
 - Add `BackendKind` to settings → glasses app stays a thin OpenAI client.
 - Introduce **two custom SSE events** (`agent_status`, `permission_prompt`) so coding agents can drive the HUD.
-- Wire the ring's single-tap to an **approve** endpoint when a prompt is pending.
+- Wire the ring to an **approve** endpoint when a prompt is pending (as built: double-tap approves, single tap denies).
 - Ship a new `agent-hub/` Node service with five adapters covering every agent on the roadmap.
 
 ---
@@ -44,7 +44,7 @@ gantt
 - [x] Extend `StreamParser` to surface SSE `event:` lines (not just `data:`) and yield structured `AgentEvent`s
 - [x] Add an `AgentEvent` union + emit it through `ApiAdapter.sendMessage` alongside text
 - [x] `GlassesRenderer.displayPromptCard({summary, options})` — renders Approve / Deny on the HUD
-- [x] `Main.ts` — when a prompt is active, single-tap = approve, double-tap = deny + abort
+- [x] `Main.ts` — when a prompt is active, double-tap = approve, single-tap = deny (a deliberate gesture approves; an accidental brush must never)
 - [x] Backwards compat: behaviour unchanged when no custom events are present
 - [ ] Manual smoke against a real G2 (deferred to user; not part of this branch)
 
@@ -90,7 +90,7 @@ gantt
 | Claude / Codex CLI stream-json shape drifts | Medium | Isolated in one adapter file; one place to patch |
 | BLE throughput spikes when prompts arrive mid-stream | Low | Render prompt **replaces** the streaming text — same throttle still applies |
 | LAN auth weak by default | Medium | Bearer token required from v1; document Tailscale for off-LAN |
-| Ring single-tap collisions (approve vs page) | Medium | Modal state machine; single-tap approves **only while** a prompt is on screen |
+| Ring tap collisions (approve/deny vs page) | Medium | Modal state machine; while a prompt is on screen a double-tap approves and a single tap denies — a deliberate gesture approves, an accidental one cannot |
 | Hub crashes mid-session | Low | Glasses app surfaces error event + falls back to status `disconnected`; user retries |
 
 ---
@@ -117,8 +117,8 @@ stateDiagram-v2
     Thinking --> Prompted: permission_prompt event
     Answering --> Prompted: permission_prompt event
     Answering --> Idle: [DONE]
-    Prompted --> Answering: tap = approve
-    Prompted --> Idle: double-tap = deny + abort
+    Prompted --> Answering: double-tap = approve
+    Prompted --> Idle: tap = deny
     Answering --> Idle: double-tap = cancel
 ```
 

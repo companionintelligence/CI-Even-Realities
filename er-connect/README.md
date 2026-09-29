@@ -128,14 +128,63 @@ starting a new session would let Claude run `npm run build && wrangler
 deploy` (or call the API directly) without a human in the loop for future
 redeploys.
 
-## Prerequisite: register the OIDC client
+## OIDC client (registered)
 
-`src/auth/oidc.ts` uses `client_id: 'ci-er-connect'`. CI-Portal's
-`PUBLIC_CLIENTS` registry needs an entry for it with `redirect_uri` set to
-this app's deployed URL (`https://er.ci.computer/`) — that's a CI-Portal-side
-change, not something this repo can do on its own. Until it's registered,
-sign-in will fail at the authorize step with an invalid-client error from
-the IdP.
+`src/auth/oidc.ts` uses `client_id: 'ci-er-connect'`. It is registered in CI-Portal
+(`oidcClients.ts` → `PUBLIC_CLIENTS`, name "CI Companion — Setup & Connect") and
+is deployed to staging and production. Because this client has exactly one
+redirect, CI-Portal pins it in `FIXED_PUBLIC_REDIRECTS`
+(`firstPartyRedirect.ts`): the only accepted `redirect_uri` is
+**`https://er.ci.computer/`** — trailing slash included. Consent is still shown
+on first sign-in. If you ever serve er-connect from another origin (a preview
+URL, a new domain), sign-in there will be rejected until CI-Portal's list is
+extended; that is deliberate.
+
+## Test sign-in end to end
+
+Run this after every er-connect deploy, and after any CI-Portal promotion that
+touches auth. It takes about two minutes and needs a CI-Portal account. Use a
+normal browser window (not a private window if you want step 7 to work).
+
+1. **Open <https://er.ci.computer>.** You should see the CI Companion header and
+   a three-step Stepper (Install → Connect → Talk). Open **Help** (top right):
+   the tabbed dialog should open and close cleanly.
+2. **Go to step 2, Connect.** Under *Sign in* you should see the button
+   **Sign in with Companion Intelligence** and no red error text.
+3. **Click it.** The browser leaves er.ci.computer for
+   `https://hub.ci.computer/…` and lands on the CI-Portal **login** page. The
+   address bar should carry `client_id=ci-er-connect` and
+   `redirect_uri=https://er.ci.computer/`.
+4. **Log in**, then approve the **consent** screen (first time only). You are
+   sent back to `https://er.ci.computer/?code=…&state=…`; the page exchanges the
+   code and strips the query string from the address bar.
+5. **Check the result.** A green pill with your name (or "Signed in") appears
+   beside the *Sign in* label, and the button becomes **Sign out**. In DevTools → Application →
+   Local Storage → `https://er.ci.computer` there is an
+   `er-connect:oidc-tokens` entry.
+6. **Enter your Hub host** (for example `ci-hub.local` or `192.168.1.50`) and
+   click **Connect**. Expect the **Saved … Browsers can't test a plain-http
+   host from this page** note, *not* a green "Connected" and not a red
+   "Unreachable". This is expected: an agent-hub is plain `http://<host>:8787`
+   and browsers refuse plain-http requests from an https page (mixed content),
+   so er.ci.computer cannot check it. A hub served over `https://` gets a real
+   green/red result. The host is remembered either way.
+7. **Reload the page.** You should stay signed in and, with a remembered host,
+   see the same Connect result again with no clicks — that is the auto-reconnect.
+   Click **Sign out** and reload: back to the **Sign in with Companion Intelligence** button.
+
+Then finish on the phone: open **CI Companion** in the Even app → Settings →
+CI-Hub, enter the same host, and tap a **Quick connect** preset. That is where
+the connection is actually verified end to end.
+
+### If it fails
+
+| You see | Meaning / fix |
+|---|---|
+| Error text under the sign-in button, or a Portal page saying invalid client / invalid redirect | The client or redirect isn't registered on the Portal environment you hit. Check `PUBLIC_CLIENTS` and `FIXED_PUBLIC_REDIRECTS` in CI-Portal, and that the page is served from exactly `https://er.ci.computer/`. **Reaching the login page proves nothing** — an unauthenticated `/oauth2/authorize` redirects to `/login` for *any* client id or redirect (checked 2026-09-28 with a made-up client), so registration errors only appear after you log in. |
+| Bounced back to er.ci.computer but still signed out, with an error | The code exchange failed. Open DevTools → Network and look at the `…/oauth2/token` request: `invalid_grant` usually means the tab was reloaded mid-flow (the PKCE verifier is per-tab, in `sessionStorage`) — just start again. |
+| Signed out on every reload | Storage is blocked or the window is private. `localStorage` must be writable for `https://er.ci.computer`. |
+| Red "Unreachable" on an `https://` hub | A real network failure — the host, port 8787, DNS, or a certificate. Test `curl -I https://<host>:8787` from the same machine. |
 
 ## Files
 
@@ -143,5 +192,5 @@ the IdP.
 - `src/components/HelpDialog.tsx` — the tabbed help modal (how it works, screenshots, manual config, backends, troubleshooting).
 - `src/auth/` — `pkce.ts` (RFC 7636 helpers), `oidc.ts` (the CI-Portal Authorization Code + PKCE flow, mirrors `ci-glasses-app/src/auth/OidcClient.ts`), `useConnect.ts` (the React hook wiring sign-in + Hub-connect lifecycle together, including auto-reconnect on boot).
 - `src/hub/connect.ts` — CI-Hub host normalization and the `agent-hub` reachability probe, mirrors `ci-glasses-app/src/config/HubPresets.ts`.
-- `public/` — favicon, screenshots (from `docs/ui/`), and `_headers` — copied into `dist/` verbatim on build.
+- `public/` — favicon, screenshots (copies of `ci-glasses-app/assets/screenshots/01-empty-quick-actions.png` and `03-settings.png` — refresh them whenever the app's look changes), and `_headers` — copied into `dist/` verbatim on build.
 - `wrangler.jsonc` — the Worker config: name (`ci-er-connect`), `dist/` as the assets directory, and the `er.ci.computer` custom-domain route.

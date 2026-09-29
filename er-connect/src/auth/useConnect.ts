@@ -12,7 +12,8 @@ import {
 } from './oidc';
 import { HUB_URL_KEY, probeHub } from '../hub/connect';
 
-export type ConnectStatus = 'idle' | 'checking' | 'ok' | 'error';
+/** `unverified` = saved, but this browser can't test the host from an https page. */
+export type ConnectStatus = 'idle' | 'checking' | 'ok' | 'unverified' | 'error';
 
 export interface ConnectState {
   booting: boolean;
@@ -49,6 +50,14 @@ export function useConnect(): ConnectState {
     setConnectStatus('checking');
     setConnectMessage('Connecting…');
     probeHub(raw).then((result) => {
+      if (result.blocked) {
+        setConnectStatus('unverified');
+        setConnectMessage(
+          `Saved ${result.url}. Browsers can't test a plain-http host from this page — that's expected. ` +
+            'Open CI Companion in the Even app and tap Quick connect to finish.',
+        );
+        return;
+      }
       setConnectStatus(result.ok ? 'ok' : 'error');
       setConnectMessage(result.ok ? `Connected: ${result.url}` : `Unreachable: ${result.url}`);
     });
