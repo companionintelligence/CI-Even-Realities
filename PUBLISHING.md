@@ -253,7 +253,7 @@ Use this as the starting point — the portal accepts plain text + images.
 
 **Description:**
 
-> CI Companion turns your Even Realities G2 into a voice-driven front-end for the AI agent of your choice. Long-press the G2 touchbar to ask a question, see the answer stream onto the MicroLED display, and approve agent permission prompts with a single ring tap.
+> CI Companion turns your Even Realities G2 into a voice-driven front-end for the AI agent of your choice. Long-press the G2 touchbar to ask a question, see the answer stream onto the MicroLED display, and approve agent permission prompts with a double-tap (a single tap denies).
 >
 > Bring your own backend:
 > • **OpenAI / Claude / Gemini** via any OpenAI-compatible endpoint

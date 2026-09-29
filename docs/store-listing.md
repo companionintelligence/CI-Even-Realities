@@ -27,7 +27,7 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 > CI Companion turns your Even Realities G2 into a voice-driven front-end for the
 > AI agent of your choice. Long-press the G2 touchbar to ask a question, watch the
 > answer stream onto the MicroLED display, and approve agent permission prompts
-> with a single ring tap.
+> with a double-tap (a single tap denies).
 >
 > **Sign in with Companion Intelligence.** Authenticate once against your
 > CI-Portal identity (OpenID Connect) — no API keys to paste, and your session

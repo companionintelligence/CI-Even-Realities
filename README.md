@@ -34,7 +34,7 @@ The configuration tab. The **Account** card offers **Sign in with Companion Inte
 
 Two more surfaces render on top of the Chat tab but **cannot be captured headlessly** — they are gated on the live Even Hub SDK bridge (`waitForEvenAppBridge`), which only resolves inside the Even Hub app or its simulator:
 
-- **Permission prompt** (`?screen=prompt`) — the approve/deny card the HUD shows when a hub-routed agent (Claude Code / Codex / OpenClaw) requests a tool. Ring single-tap approves, double-tap denies.
+- **Permission prompt** (`?screen=prompt`) — the approve/deny card the HUD shows when a hub-routed agent (Claude Code / Codex / OpenClaw) requests a tool. Ring double-tap approves, single-tap denies (deliberate: an accidental brush of the touchbar must never approve an agent action).
 - **Mid-stream frame** (`?screen=stream`) — a live answer streaming onto the G2 display, which additionally needs a reachable AI backend.
 
 In a plain headless browser the bridge never resolves, so both deep-links fall through to the Chat tab shown above. These are documented here rather than screenshotted so nothing on this page is fabricated; capture them from the Even Hub simulator when a HUD reference is needed.
@@ -82,7 +82,7 @@ flowchart LR
 
     hub -- SSE stream --> renderer["GlassesRenderer"]
     renderer --> display["G2 display"]
-    hub -. "permission_prompt cards<br/>ring single-tap = approve" .-> display
+    hub -. "permission_prompt cards<br/>ring double-tap = approve · tap = deny" .-> display
 ```
 
 The glasses app stays a thin OpenAI SSE client. All agent-specific glue lives in `agent-hub/`. Point Backend URL at the hub, set Backend Kind in Settings, you're done.
@@ -238,7 +238,7 @@ The glasses app's `Settings` panel now exposes a **Backend Kind** selector. Each
 |---|---|---|
 | `openai` | Any OpenAI-compatible URL | Today's default. Hub optional. |
 | `local-llm` | Ollama / vLLM / llama.cpp on LAN | Hermes-3 / Hermes-4 GGUFs land here. |
-| `claude-cli` | `agent-hub` spawning Claude Code | Supports `permission_prompt` events; ring single-tap approves. |
+| `claude-cli` | `agent-hub` spawning Claude Code | Supports `permission_prompt` events; ring double-tap approves, single tap denies. |
 | `codex-cli` | `agent-hub` spawning Codex CLI | Same permission flow as Claude. |
 | `openclaw` | `agent-hub` forwarding to OpenClaw Gateway | Node port of the dAAAb Cloudflare bridge. |
 

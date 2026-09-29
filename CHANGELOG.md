@@ -91,6 +91,13 @@ via its own `package.json` / Docker tag.
   loopback failure from an https page is treated the same way; real failures
   (an http page, or an https hub) still show as errors. **Needs an er-connect
   redeploy** (`wrangler deploy`) to take effect on er.ci.computer.
+- **The store listing (and README/planning docs) said a single ring tap approves
+  an agent permission prompt. It is the opposite:** a double-tap approves and a
+  single tap denies — deliberately, so an accidental brush of the touchbar can
+  never approve a Bash command (`Main.ts`, `GlassesRenderer.showPromptCard`,
+  which prints `2×tap: approve · tap: deny`). Corrected in
+  `docs/store-listing.md` (the copy that gets pasted into the portal),
+  `PUBLISHING.md`, `README.md` and `planning.md`.
 - er-connect's README said the `ci-er-connect` OIDC client still needed
   registering; it is registered and deployed (redirect pinned to
   `https://er.ci.computer/`).
