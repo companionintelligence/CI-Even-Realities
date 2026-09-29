@@ -32,6 +32,13 @@ via its own `package.json` / Docker tag.
 
 ### Fixed
 
+- **er-connect: the Connect status overflowed its card.** Found verifying the
+  0.5.2 deploy on the live site: the explanation for a plain-http hub sat inside
+  a single-line status pill, so the page scrolled sideways and the message was
+  cut off. The pill now carries a short "Saved http://<host>:8787 — not verified"
+  label, the explanation is a wrapping paragraph beneath it, and the pill itself
+  wraps (`break-all`) so a long Tailscale MagicDNS name no longer runs off the
+  card — that overflow already affected "Connected: …" / "Unreachable: …".
 - Flagged `ci-glasses-app/assets/screenshots/*.png` (used by `PUBLISHING.md`'s
   store-listing checklist) as stale — they predate the sage brand migration
   and visually mismatch the current app. Added a pre-flight checklist item

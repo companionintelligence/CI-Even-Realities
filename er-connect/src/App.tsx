@@ -130,6 +130,7 @@ export function App() {
                     {connect.connectMessage ? (
                       <div className="mt-2">
                         <StatusPill
+                          className="h-auto max-w-full whitespace-normal break-all text-left"
                           status={
                             connect.connectStatus === 'ok'
                               ? 'success'
@@ -139,6 +140,13 @@ export function App() {
                           }
                           label={connect.connectMessage}
                         />
+                        {connect.connectStatus === 'unverified' ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Browsers can&apos;t test a plain-http host from this page — that&apos;s
+                            expected. Open CI Companion in the Even app and tap{' '}
+                            <strong>Quick connect</strong> to finish.
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

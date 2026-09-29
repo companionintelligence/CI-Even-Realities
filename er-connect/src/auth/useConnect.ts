@@ -52,10 +52,8 @@ export function useConnect(): ConnectState {
     probeHub(raw).then((result) => {
       if (result.blocked) {
         setConnectStatus('unverified');
-        setConnectMessage(
-          `Saved ${result.url}. Browsers can't test a plain-http host from this page — that's expected. ` +
-            'Open CI Companion in the Even app and tap Quick connect to finish.',
-        );
+        // Short on purpose: it renders in a single-line StatusPill. The explanation lives in App.tsx.
+        setConnectMessage(`Saved ${result.url} — not verified`);
         return;
       }
       setConnectStatus(result.ok ? 'ok' : 'error');
