@@ -4,30 +4,130 @@ End-to-end guide for shipping `ci-glasses-app` to the Even Hub portal. The compa
 
 ---
 
-## TL;DR
+## Release runbook (macOS)
+
+Everything runs on your Mac, in Terminal. Steps marked **(you)** need your Even
+Realities account or the portal UI and cannot be done by a script or an agent.
+`evenhub-cli` has `login`, `init`, `pack` and `qr` — **no `publish`** — so the
+upload is always a manual step in the portal.
+
+**Prerequisites:** Node 20.19+ (what CI uses), `gh` logged in (`gh auth status`) —
+`@companionintelligence/*` packages come from the private GitHub Packages
+registry — and an Even Realities developer account.
+
+### 1. Get the release commit
 
 ```bash
+git checkout main && git pull --ff-only
 cd ci-glasses-app
-npm run build           # tsc + vite -> dist/
-npx evenhub login       # one-time, opens Even Realities auth
-npm run pack:ehpk       # builds + produces ci-companion.ehpk
-# Upload ci-companion.ehpk via https://evenhub.evenrealities.com/
 ```
+
+### 2. Install (private registry auth)
+
+`.npmrc` reads `NODE_AUTH_TOKEN` for `npm.pkg.github.com`; your `gh` token works:
+
+```bash
+export NODE_AUTH_TOKEN="$(gh auth token)"
+npm ci
+```
+
+A `401`/`403` on install means the token lacks package access:
+`gh auth refresh -s read:packages`, then re-export and retry.
+
+### 3. Verify
+
+```bash
+npm test && npm run typecheck && npm run lint && npm run lint:canon
+```
+
+All four must pass. `lint:canon` prints a few non-blocking "used but never
+defined" warnings for `--primary`, `--destructive`, `--radius-*` etc.: the gate
+does not follow the `@import` of the token package, and
+`src/ui/__tests__/theme-tokens.test.ts` is what actually checks those names.
+
+### 4. Log in to Even Hub (you)
+
+```bash
+npx evenhub login -e you@example.com
+```
+
+Use the email of your Even Realities developer account and follow the prompts.
+Credentials are stored locally by the CLI. Confirm with step 5 — `pack --check`
+fails with "Not authenticated" if the login didn't take.
+
+### 5. Check the package id
+
+```bash
+npm run pack:check
+```
+
+This builds, then runs `evenhub pack … --check`, which the CLI documents as
+"check if the package id is available". `com.companionintelligence.ciglasses`
+is our id. If you already uploaded an earlier version, the id may report as
+taken by you; that is expected for an *update* (not verified against the CLI —
+if in doubt, continue and let the portal validate).
+
+### 6. Build the package
+
+```bash
+npm run pack:ehpk
+ls -lh ci-companion.ehpk      # ~165 KB for 0.5.2; gitignored on purpose
+open -R ci-companion.ehpk     # reveal it in Finder
+```
+
+`ci-companion.ehpk` is a binary with an `EHPK` magic header, not a zip.
+
+### 7. Upload (you)
+
+```bash
+open https://evenhub.evenrealities.com/
+open assets/screenshots       # the six store screenshots, ready to drag in
+```
+
+In the portal: sign in → **Apps** → **New** (first release) or your existing
+CI Companion → upload `ci-companion.ehpk`. Fill the listing from
+[`docs/store-listing.md`](docs/store-listing.md) — name, tagline, description,
+categories, the six screenshots from `ci-glasses-app/assets/screenshots/` in
+order, icon `ci-glasses-app/assets/icons/icon-1024.png`, and the "Release notes"
+block for this version. Submit for review. (Button and menu labels here are from the
+existing notes, not a fresh walkthrough of the portal — expect small wording
+differences.)
+
+### 8. After the portal accepts it
+
+```bash
+git tag v0.5.2 -m "CI Companion 0.5.2"
+git push --tags
+```
+
+### 9. Verify the release on real hardware / phone
+
+1. Install **CI Companion** from Even Hub on the phone (or, before approval,
+   scan `npm run qr` output with the Even Hub app's developer mode).
+2. Open it: the screen should be the dark teal-navy Companion look with outlined
+   quick-prompt chips and a sage accent — not near-black.
+3. Settings → **Sign in with Companion Intelligence** → log in at
+   `hub.ci.computer` → you land back in the app showing your identity.
+4. Settings → CI-Hub → enter your Hub host → tap a **Quick connect** preset.
+5. Long-press the G2 touchbar, ask something, and watch the answer stream onto
+   the HUD.
+6. Run the browser-side check as well: [er-connect → Test sign-in end to
+   end](er-connect/README.md#test-sign-in-end-to-end).
 
 ---
 
 ## Pre-flight checklist
 
-- [ ] `npm test` passes (currently 179 tests)
+- [ ] `npm test` passes (currently 185 tests)
 - [ ] `npm run typecheck` clean
 - [ ] `npm run build` produces `dist/` with `index.html`, JS, CSS
-- [ ] `app.json` version bumped (semver) — currently `0.5.1`
+- [ ] `app.json` version bumped (semver) — currently `0.5.2`
 - [ ] Backend URL field in Settings defaults to a sensible value (today: `http://localhost:8080`)
 - [ ] `permissions.network.whitelist` is `["*"]` so users can point at their own hub / Ollama / OpenAI URLs **and reach CI-Portal for OIDC sign-in**
 - [ ] "Sign in with Companion Intelligence" (CI-Portal OIDC) reaches the configured issuer; signed-out API-key mode still works
 - [ ] CI-Hub quick-connect fills a valid Ollama/Hermes/OpenClaw backend from a Hub base URL
 - [ ] Manually smoke-tested in the Even Hub simulator against at least one live backend (recommend Ollama)
-- [x] Store-listing screenshots recaptured on the current brand (0.5.1 set — see "Screenshots" below)
+- [x] Store-listing screenshots recaptured on the current brand (0.5.2 set — see "Screenshots" below)
 
 ---
 
@@ -40,7 +140,7 @@ The portal validates `app.json` against a fixed schema. The current file is:
   "package_id": "com.companionintelligence.ciglasses",
   "edition": "202601",
   "name": "CI Companion",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "min_app_version": "2.2.10",
   "min_sdk_version": "0.0.16",
   "entrypoint": "index.html",
@@ -112,7 +212,7 @@ npx evenhub pack app.json dist --output ci-companion.ehpk
 
 The `pack:ehpk` script wraps these two steps.
 
-`evenhub pack` writes a custom binary format (magic header `EHPK`). It is not a zip — don't try to unzip it. A clean build today is ~36 KB (15 KB JS minified+gzip, 1.8 KB CSS, plus the SDK runtime).
+`evenhub pack` writes a custom binary format (magic header `EHPK`). It is not a zip — don't try to unzip it. A clean build today packs to ~165 KB (0.5.2: 47 KB gzip JS, 8 KB gzip CSS, ~72 KB of self-hosted Manrope `.woff2` files, icons).
 
 ---
 
@@ -136,14 +236,10 @@ The Even Hub simulator (`evenhub-simulator http://<LAN-IP>:5173`) covers the sam
 
 ## Upload to the portal
 
-`evenhub-cli` does **not** have a `publish` subcommand — uploads are manual via the portal:
-
-1. `npx evenhub login` (one-time; saves credentials locally).
-2. Build + pack: `npm run pack:ehpk`.
-3. Open <https://evenhub.evenrealities.com/>.
-4. **Apps → New / Update → Upload `.ehpk`**.
-5. Fill out store listing (title, screenshots, description) using `docs/store-listing.md` as the source of truth (see below).
-6. Submit for review.
+See [Release runbook (macOS)](#release-runbook-macos) above — steps 4–7. In short:
+`evenhub` has no `publish` command, so you log in with the CLI, build the `.ehpk`
+with `npm run pack:ehpk`, and upload it by hand at
+<https://evenhub.evenrealities.com/>.
 
 ---
 
@@ -174,7 +270,7 @@ Use this as the starting point — the portal accepts plain text + images.
 - `icon-512.png`, `icon-192.png`, `icon-128.png`, `icon-64.png` — derived sizes
 - `icon-512.png` is also bundled inside the `.ehpk` at `dist/icon.png`
 
-**Screenshots** (in `ci-glasses-app/assets/screenshots/`) — recaptured 2026-09-28 from the 0.5.1 build (`vite build`, served with `vite preview`) on the current sage brand, replacing the earlier set that predated the canon migration. `05`/`06` stream a fixed, accurate answer from a small deterministic OpenAI-compatible mock (word by word, exactly like a real backend) so they are reproducible; everything else is the app as-is. The old `07-beta1-settings.png` is gone on purpose — it showed a private Tailscale address.
+**Screenshots** (in `ci-glasses-app/assets/screenshots/`) — recaptured 2026-09-28 from the 0.5.2 build (`vite build`, served with `vite preview`) on the Companion teal-navy surface (canon `@companionintelligence/tokens`, dark), replacing the earlier near-black set. `05`/`06` stream a fixed, accurate answer from a small deterministic OpenAI-compatible mock (word by word, exactly like a real backend) so they are reproducible; everything else is the app as-is. The old `07-beta1-settings.png` is gone on purpose — it showed a private Tailscale address.
 
 | File | What it shows | Source |
 |---|---|---|
@@ -185,7 +281,7 @@ Use this as the starting point — the portal accepts plain text + images.
 | `05-hud-stream.png` | A streamed answer paginated on the HUD | simulator glasses |
 | `06-chat-with-response.png` | Full webview after a streamed answer: user bubble, assistant bubble, live GLASSES DISPLAY preview | simulator webview |
 
-To recapture, run the simulator against a built app (`npm run build && npm run preview -- --port 5173`) with `--automation-port 9898` and fetch `/api/screenshot/{glasses,webview}` (one fresh simulator launch per shot; the webview snapshot only works while the window is frontmost). Sizes are 1200×1544 (webview) and 576×288 (glasses).
+To recapture, run the simulator against a built app (`npm run build && npm run preview -- --port 5173`) with `--automation-port 9898` and fetch `/api/screenshot/{glasses,webview}` (one fresh simulator launch per shot; the webview snapshot only works while the window is frontmost). Sizes are 1200×1544 (webview) and 576×288 (glasses). **Give each webview shot a long settle (15–22 s after launch).** The splash is dismissed by a CSS animation, and with the window backgrounded the WebView throttles it, so a shorter wait can capture the splash mid cross-fade (seen while producing this set). Also look at every image before committing it: a screenshot of an unstyled page still looks like "a screenshot".
 
 **Optional extras** (capture only if you want extra polish):
 - agent-hub terminal output (for the developer story)

@@ -49,6 +49,54 @@ via its own `package.json` / Docker tag.
   with the two paths that actually apply now (local `wrangler deploy`, or
   the GitHub Actions workflow).
 
+## [0.5.2] — Companion teal-navy redesign of the phone UI
+
+### Changed
+
+- **The phone WebView now actually looks like Companion.** It was painted from
+  a legacy near-black palette held in two hand-copied token blocks (the drift
+  CI-Common's `CONSUMING.md` forbids), so it read as generic dark UI rather
+  than Companion's teal-navy. `styles.css` now imports
+  `@companionintelligence/tokens/tokens.css`, keeps only thin `--color-*`
+  aliases onto canon names (`--ci-bg`, `--ci-card`, `--ci-bg-deep`,
+  `--ci-surface`, `--ci-border`, `--primary`, `--gradient-aurora`, …) and
+  `index.html` sets `class="dark"` on `<html>` (tokens.css's `:root` is the
+  *light* palette). The splash uses the real logo from `icon.png` instead of a
+  hand-drawn SVG. The only literal colour left is the black GLASSES DISPLAY
+  preview, which imitates the G2 MicroLED panel on purpose.
+- Store screenshots, `README.md`, `docs/ui/` and the er-connect Help dialog now
+  show the new look (all were the old near-black UI).
+
+### Added
+
+- `theme-tokens.test.ts` fails on any `var(--x)` that neither `styles.css` nor
+  the installed canon `tokens.css` defines. A first pass aliased surfaces onto
+  `--ci-surface-2` / `--ci-border-3`, which exist only in the Tailwind-flavoured
+  `globals.css` this build doesn't import — the app rendered with no card
+  fills, borders or chip outlines and every source-level check still passed.
+- `PUBLISHING.md` **Release runbook (macOS)**: install → verify → `evenhub
+  login` → `pack --check` → `pack:ehpk` → portal upload → tag → on-device
+  verification.
+- `er-connect/README.md` **Test sign-in end to end** and a failure table.
+
+### Fixed
+
+- **er-connect's Connect step reported a false "Unreachable".** It probes
+  `http://<host>:8787` from `https://er.ci.computer`, and browsers refuse
+  plain-http requests from an https page. Measured against the live site with a
+  server answering on every address: the same `fetch` resolved from an http page
+  and was rejected from er.ci.computer for a LAN IP, `127.0.0.1` and `localhost`.
+  Non-loopback http hosts are no longer fetched — the host is saved and the page
+  says it can't verify it from here and to use Quick connect in the app; a
+  loopback failure from an https page is treated the same way; real failures
+  (an http page, or an https hub) still show as errors. **Needs an er-connect
+  redeploy** (`wrangler deploy`) to take effect on er.ci.computer.
+- er-connect's README said the `ci-er-connect` OIDC client still needed
+  registering; it is registered and deployed (redirect pinned to
+  `https://er.ci.computer/`).
+- Removed `er-connect/public/assets/preview.png`, an unreferenced leftover of
+  the old near-black page that was being served publicly.
+
 ## [0.5.1] — Responses-API fallback fix, refreshed store screenshots
 
 ### Fixed

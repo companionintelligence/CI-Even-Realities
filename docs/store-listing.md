@@ -12,7 +12,7 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 |---|---|
 | **App name** | CI Companion |
 | **Package id** | `com.companionintelligence.ciglasses` |
-| **Version** | `0.5.1` |
+| **Version** | `0.5.2` |
 | **Categories** | Productivity · Developer Tools |
 | **Supported languages** | English (`en`) |
 | **Support URL** | <https://github.com/companionintelligence/CI-Even-Realities> |
@@ -60,7 +60,7 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 
 ## Screenshots (`ci-glasses-app/assets/screenshots/`)
 
-Recaptured for 0.5.1 on the current sage brand (see [`../PUBLISHING.md`](../PUBLISHING.md#how-the-screenshots-were-captured) for how).
+Recaptured for 0.5.2 on the Companion teal-navy surface (see [`../PUBLISHING.md`](../PUBLISHING.md#how-the-screenshots-were-captured) for how).
 
 | File | What it shows |
 |---|---|
@@ -71,7 +71,12 @@ Recaptured for 0.5.1 on the current sage brand (see [`../PUBLISHING.md`](../PUBL
 | `05-hud-stream.png` | Streamed answer paginated on the HUD |
 | `06-chat-with-response.png` | Full webview after a streamed answer, with glasses preview |
 
-## Release notes — 0.5.1
+## Release notes — 0.5.2
+
+- Redesigned to the Companion Intelligence look: the phone screen now uses the shared Companion teal-navy palette, Manrope type, raised cards, outlined quick-prompt chips and the sage accent, instead of a generic near-black theme.
+- Refreshed store screenshots to match.
+
+## Release notes — 0.5.1 (previous)
 
 - Fixed: pointing the app at a self-hosted or OpenAI-compatible server that has no Responses API (an `agent-hub`, or many local servers) no longer fails with "Responses API error 404" — the app now falls back to Chat Completions automatically.
 - Native G2 touchbar long-press now starts and stops recording directly (Even Hub SDK 0.0.16).
