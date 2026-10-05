@@ -58,6 +58,17 @@ via its own `package.json` / Docker tag.
 
 ### er-connect: cross-links and audit fixes
 
+- **Repairs after the cross-link PR (er-connect).** The 404 page now carries the
+  same **Buy Companion Core** / **Download Companion** callouts as the hero (same
+  labels, URLs and button classes) and `check-dist` requires them there; the Install
+  step says that Download Companion is Companion Hub, not the glasses app; the Help
+  dialog's "Still stuck?" links (troubleshooting guide, docs, support, Discord) sit
+  in the Troubleshooting tab instead of inside a collapsed accordion item. The GA
+  init no longer lets the OAuth `code` / `state` reach Google on the sign-in return
+  trip (it passes a `page_location` with the callback parameters removed, and
+  `check-dist` runs the emitted file to prove it), and `check-dist` now reads
+  whether GA was configured from the built output, so a Vite `.env.local` build no
+  longer fails.
 - **Cross-links to the rest of Companion Intelligence.** The header logo and a
   footer link go to <https://ci.computer>; the hero and the Connect step carry
   **Buy Companion Core** (<https://ci.computer/core>) and **Download Companion**

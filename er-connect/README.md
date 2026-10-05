@@ -75,11 +75,14 @@ npm run check:dist   # re-run just the output checks against an existing dist/
 
 `scripts/check-dist.mjs` runs at the end of every build and fails it when the
 output regresses: the ci.computer / Buy / Download / docs cross-links must be
-real `<a href>` elements (in the static shell, the 404 page and the app), no
-links to the private GitHub repo, no Google Fonts, exactly one canonical / OG
-image / JSON-LD block, GA4 emitted exactly once (and only for a valid
-`GA_MEASUREMENT_ID`), the strict CSP and HSTS intact, and the JS stays under a
-size budget. CI (`ci.yml`, job `er-connect`) runs the same build.
+real `<a href>` elements (in the static shell, the 404 page and the app; the 404
+carries the same Buy / Download callouts, labels and button classes as the
+hero), no links to the private GitHub repo, no Google Fonts, exactly one
+canonical / OG image / JSON-LD block, GA4 emitted exactly once per page when the
+build had a valid ID (and not at all when it did not), the emitted GA init
+never sending the OAuth `code` / `state` to Google, the strict CSP and HSTS
+intact, and the JS stays under a size budget. CI (`ci.yml`, job `er-connect`)
+runs the same build.
 
 The page works before and without JavaScript: `index.html` carries a static
 copy of the header, hero, Buy/Download callouts and footer, and React replaces
@@ -251,5 +254,9 @@ gh variable set GA_MEASUREMENT_ID --body G-XXXX --repo companionintelligence/CI-
 ```
 
 The ID is never committed. The init script is an external `ga-init.js` so the CSP in `public/_headers` needs no `unsafe-inline`. If Google's script is blocked or offline the page is unaffected. The footer discloses analytics (and links Privacy) only when the build has a valid ID, and tags are injected into the freshly built HTML on every build, so rebuilding never duplicates them.
+
+The ID can come from the environment (CI, the deploy workflow) or from a Vite env file such as `er-connect/.env.local` (gitignored); an environment value wins. `scripts/check-dist.mjs` treats the built `dist/` as the source of truth for whether GA was configured, so a local build with `.env.local` passes, and when `GA_MEASUREMENT_ID` is set in the environment it also checks the output matches it.
+
+**OAuth return trip.** After sign-in the browser lands on `/?code=…&state=…`. `ga-init.js` runs before the app mounts, and `gtag('config')` would otherwise read that full URL as `page_location`, so the config call passes its own `page_location` with `code`, `state`, `error`, `error_description` and `iss` removed (other parameters such as `utm_*` are kept for campaign attribution). The app still scrubs the address bar after it mounts; the init file closes the window before that. `check-dist` executes the emitted file against callback URLs and fails the build if any of those parameters would reach Google.
 
 Cloudflare's dashboard can also auto-inject Web Analytics and bot-detection scripts on this hostname; the strict CSP blocks them and logs two console errors. Turn those off for `er.ci.computer` in the dashboard (Web Analytics, and Security → Bots → JavaScript Detections) instead of loosening the CSP.

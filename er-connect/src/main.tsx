@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ThemeProvider } from '@companionintelligence/ui';
 import { App } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { CI_SITE_URL, DOCS_URL } from './links';
+import { BUY_LABEL, BUY_URL, CI_SITE_URL, DOCS_URL, DOWNLOAD_LABEL, DOWNLOAD_URL } from './links';
 import './index.css';
 
 // Plain markup on purpose: if the app itself failed to render, this must not
@@ -21,6 +21,14 @@ const crashFallback = (
       {' · '}
       <a className="underline underline-offset-4" href={CI_SITE_URL}>
         Companion Intelligence
+      </a>
+      {' · '}
+      <a className="underline underline-offset-4" href={BUY_URL}>
+        {BUY_LABEL}
+      </a>
+      {' · '}
+      <a className="underline underline-offset-4" href={DOWNLOAD_URL}>
+        {DOWNLOAD_LABEL}
       </a>
     </p>
   </div>

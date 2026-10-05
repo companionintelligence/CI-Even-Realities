@@ -14,6 +14,30 @@ import tailwindcss from '@tailwindcss/vite';
 //
 // Idempotent: tags are injected into the freshly transformed HTML on every
 // build (index.html itself never contains them), so a rebuild cannot duplicate them.
+//
+// Privacy: gtag('config') reads the full URL for page_location, and ga-init.js
+// runs in <head> before React mounts, so on the OAuth return trip
+// (/?code=…&state=…) Google would receive the one-time authorization code and
+// state whenever gtag.js outruns the app bundle. The app scrubs the address bar
+// after it mounts, which is too late for that race. So the config call sets
+// page_location itself, with the OAuth response parameters removed (other query
+// parameters, such as utm_*, are kept for campaign attribution).
+// scripts/check-dist.mjs executes the emitted file against a callback URL and
+// fails the build if any of these parameters would still reach GA.
+const OAUTH_RESPONSE_PARAMS = ['code', 'state', 'error', 'error_description', 'iss'];
+
+function gaInitSource(id: string): string {
+  // page_location is computed inline (an IIFE) so only `gtag` and `dataLayer` become globals.
+  return (
+    `window.dataLayer=window.dataLayer||[];` +
+    `function gtag(){dataLayer.push(arguments);}` +
+    `gtag('js',new Date());` +
+    `gtag('config','${id}',{page_location:(function(){try{var u=new URL(location.href);` +
+    `${JSON.stringify(OAUTH_RESPONSE_PARAMS)}.forEach(function(k){u.searchParams.delete(k);});` +
+    `u.hash='';return u.href;}catch(e){return location.origin+location.pathname;}})()});\n`
+  );
+}
+
 function ga4(id: string): Plugin {
   const initFile = 'ga-init.js';
   return {
@@ -32,14 +56,7 @@ function ga4(id: string): Plugin {
     },
     generateBundle() {
       if (!isGaId(id)) return;
-      this.emitFile({
-        type: 'asset',
-        fileName: initFile,
-        source:
-          `window.dataLayer=window.dataLayer||[];` +
-          `function gtag(){dataLayer.push(arguments);}` +
-          `gtag('js',new Date());gtag('config','${id}');\n`,
-      });
+      this.emitFile({ type: 'asset', fileName: initFile, source: gaInitSource(id) });
     },
   };
 }

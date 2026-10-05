@@ -199,29 +199,28 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                     preset to verify the connection for real.
                   </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="stuck">
-                  <AccordionTrigger>Still stuck?</AccordionTrigger>
-                  <AccordionContent>
-                    Read the{' '}
-                    <a href={DOCS_TROUBLESHOOTING_URL} className={LINK}>
-                      troubleshooting guide
-                    </a>{' '}
-                    or the{' '}
-                    <a href={DOCS_URL} className={LINK}>
-                      full docs
-                    </a>
-                    , contact{' '}
-                    <a href={SUPPORT_URL} className={LINK}>
-                      Companion Intelligence support
-                    </a>
-                    , or ask in the{' '}
-                    <a href={DISCORD_URL} className={LINK}>
-                      Discord
-                    </a>
-                    .
-                  </AccordionContent>
-                </AccordionItem>
               </Accordion>
+              {/* Outside the accordion on purpose: these links must be in the DOM and visible
+                  without expanding anything first. */}
+              <p className="mt-4 text-sm text-muted-foreground">
+                Still stuck? Read the{' '}
+                <a href={DOCS_TROUBLESHOOTING_URL} className={LINK}>
+                  troubleshooting guide
+                </a>{' '}
+                or the{' '}
+                <a href={DOCS_URL} className={LINK}>
+                  full docs
+                </a>
+                , contact{' '}
+                <a href={SUPPORT_URL} className={LINK}>
+                  Companion Intelligence support
+                </a>
+                , or ask in the{' '}
+                <a href={DISCORD_URL} className={LINK}>
+                  Discord
+                </a>
+                .
+              </p>
             </TabsContent>
           </ScrollArea>
         </Tabs>
