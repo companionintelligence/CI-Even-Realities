@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read # npm ci pulls the private @companionintelligence/* packages
     defaults:
       run:
         working-directory: ci-glasses-app
