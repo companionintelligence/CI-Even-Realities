@@ -11,6 +11,7 @@ import {
   type TokenSet,
 } from './oidc';
 import { HUB_URL_KEY, probeHub } from '../hub/connect';
+import { storageGet, storageSet } from '../lib/storage';
 
 /** `unverified` = saved, but this browser can't test the host from an https page. */
 export type ConnectStatus = 'idle' | 'checking' | 'ok' | 'unverified' | 'error';
@@ -29,13 +30,25 @@ export interface ConnectState {
   runConnect: () => void;
 }
 
+// Decided once, at load, and the exchange shared: completing a callback strips the
+// query string, so a second look (React StrictMode runs effects twice in dev) would
+// otherwise see "not a callback" and discard the sign-in that is still in flight.
+const arrivedFromCallback = isCallback();
+/** True when this page load is the redirect back from the sign-in service. */
+export const returnedFromSignIn = arrivedFromCallback;
+let callbackExchange: Promise<TokenSet> | null = null;
+function exchangeCallbackOnce(): Promise<TokenSet> {
+  callbackExchange ??= completeSignInFromCallback();
+  return callbackExchange;
+}
+
 /** Owns the sign-in + Hub-connect lifecycle: boot, callback exchange, refresh, auto-connect. */
 export function useConnect(): ConnectState {
   const [booting, setBooting] = useState(true);
   const [tokens, setTokens] = useState<TokenSet | null>(null);
   const [signinError, setSigninError] = useState<string | null>(null);
   const [signinBusy, setSigninBusy] = useState(false);
-  const [hubUrl, setHubUrlState] = useState(() => localStorage.getItem(HUB_URL_KEY) ?? '');
+  const [hubUrl, setHubUrlState] = useState(() => storageGet('local', HUB_URL_KEY) ?? '');
   const [connectStatus, setConnectStatus] = useState<ConnectStatus>('idle');
   const [connectMessage, setConnectMessage] = useState<string | null>(null);
 
@@ -43,10 +56,10 @@ export function useConnect(): ConnectState {
     const raw = hubUrl.trim();
     if (!raw) {
       setConnectStatus('error');
-      setConnectMessage('Enter a Hub host first');
+      setConnectMessage('Enter your Companion Hub address first');
       return;
     }
-    localStorage.setItem(HUB_URL_KEY, raw);
+    storageSet('local', HUB_URL_KEY, raw);
     setConnectStatus('checking');
     setConnectMessage('Connecting…');
     probeHub(raw).then((result) => {
@@ -87,9 +100,9 @@ export function useConnect(): ConnectState {
     async function boot() {
       let next: TokenSet | null = null;
 
-      if (isCallback()) {
+      if (arrivedFromCallback) {
         try {
-          next = await completeSignInFromCallback();
+          next = await exchangeCallbackOnce();
         } catch (err) {
           if (!cancelled) {
             setSigninError((err as Error).message);
@@ -121,7 +134,12 @@ export function useConnect(): ConnectState {
       if (next && hubUrl.trim()) runConnect();
     }
 
-    boot();
+    boot().catch((err: unknown) => {
+      // Never leave an unhandled rejection or a page stuck on "booting".
+      if (cancelled) return;
+      setSigninError(err instanceof Error ? err.message : 'Sign-in failed. Try again.');
+      setBooting(false);
+    });
     return () => {
       cancelled = true;
     };

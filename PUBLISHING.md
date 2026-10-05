@@ -80,7 +80,7 @@ open -R ci-companion.ehpk     # reveal it in Finder
 ### 7. Upload (you)
 
 ```bash
-open https://evenhub.evenrealities.com/
+open https://hub.evenrealities.com/hub   # developer console; needs an Even Realities developer login
 open assets/screenshots       # the six store screenshots, ready to drag in
 ```
 
@@ -238,8 +238,8 @@ The Even Hub simulator (`evenhub-simulator http://<LAN-IP>:5173`) covers the sam
 
 See [Release runbook (macOS)](#release-runbook-macos) above — steps 4–7. In short:
 `evenhub` has no `publish` command, so you log in with the CLI, build the `.ehpk`
-with `npm run pack:ehpk`, and upload it by hand at
-<https://evenhub.evenrealities.com/>.
+with `npm run pack:ehpk`, and upload it by hand at the Even Hub developer console,
+<https://hub.evenrealities.com/hub> (sign in with your Even Realities developer account).
 
 ---
 
@@ -258,10 +258,10 @@ Use this as the starting point — the portal accepts plain text + images.
 > Bring your own backend:
 > • **OpenAI / Claude / Gemini** via any OpenAI-compatible endpoint
 > • **Local LLMs** through Ollama, vLLM, llama.cpp (Hermes, Llama, Qwen…)
-> • **Coding agents** — Claude Code or Codex CLI, via the open-source `agent-hub` companion service
+> • **Coding agents** — Claude Code or Codex CLI, via the source-available `agent-hub` companion service
 > • **OpenClaw** Gateway
 >
-> No data goes anywhere except the backend URL you configure. Free, open source, no account required.
+> No data goes anywhere except the backend URL you configure. Free, source-available (PolyForm Noncommercial), no account required.
 
 **Categories:** Productivity · Developer Tools
 
@@ -316,7 +316,7 @@ curl -o webview.png http://localhost:9898/api/screenshot/webview
 
 **Note on networking**: with simulator 0.7.3 the Tauri webview reaches the host's `localhost` fine (verified streaming through `http://localhost:8787`), so `baseUrl=http://localhost:8787` works. If a future simulator build blocks loopback, use your machine's LAN IP (`192.168.x.y:8787`) instead — the hub binds loopback only by default, so that also needs `HUB_BIND=0.0.0.0` + `HUB_TOKEN`. The agent-hub sends permissive CORS headers so the webview's preflight passes.
 
-**Support URL:** <https://github.com/companionintelligence/CI-Even-Realities>
+**Support URL:** <https://ci.computer/support> (the GitHub repository is private, so it is not a usable support link)
 
 ---
 

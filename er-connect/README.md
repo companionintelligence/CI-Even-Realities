@@ -9,14 +9,23 @@ so it renders the real CI phthalo/sage palette, the real logo mark, and the
 same Button/Card/Dialog/Stepper/StatusPill primitives every other CI surface
 uses, instead of a hand-approximated copy.
 
-- **Install** — an `AppCard` for CI Companion (Even Hub store link) plus a
-  `QrCode` to scan on your phone, or sideload the latest `.ehpk` from GitHub.
+- **Install** — honest about status: CI Companion is a **developer preview**
+  with no public store listing or `.ehpk` release yet, so this step points at the
+  [docs install steps](https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities#install-the-app)
+  and the Discord instead of a store link. Put the real listing link here
+  (and bring back a QR code) only once a listing exists.
+- **Cross-links** — the logo and footer go to <https://ci.computer>; the hero and
+  Connect step carry **Buy Companion Core** (<https://ci.computer/core>) and
+  **Download Companion** (<https://ci.computer/download>); **Docs** links to the
+  matching docs page. Every URL lives in `src/links.ts`.
 - **Sign in** — real Authorization Code + PKCE flow against CI-Portal
   (`https://hub.ci.computer/api/auth`), mirroring
   `ci-glasses-app/src/auth/OidcClient.ts`.
 - **Connect your Hub** — a `Stepper` walks Install → Connect → Talk. Once
-  you've signed in and entered a Hub host, both are remembered
-  (`localStorage`) and reconnect automatically on your next visit.
+  you've entered a Hub address it is remembered in `localStorage`. The
+  sign-in itself lives in `sessionStorage` (this tab only; closing the tab
+  signs out), and a remembered address plus a live sign-in reconnect
+  automatically on reload.
 - **Help** — everything explanatory (how it works, screenshots, manual
   backend config, supported Backend Kinds, troubleshooting) lives behind a
   `Dialog` with tabs, out of the main flow.
@@ -60,8 +69,26 @@ same way).
 ## Build
 
 ```bash
-npm run build   # tsc -b && vite build → dist/
+npm run build   # tsc -b && vite build → dist/, then scripts/check-dist.mjs
+npm run check:dist   # re-run just the output checks against an existing dist/
 ```
+
+`scripts/check-dist.mjs` runs at the end of every build and fails it when the
+output regresses: the ci.computer / Buy / Download / docs cross-links must be
+real `<a href>` elements (in the static shell, the 404 page and the app), no
+links to the private GitHub repo, no Google Fonts, exactly one canonical / OG
+image / JSON-LD block, GA4 emitted exactly once (and only for a valid
+`GA_MEASUREMENT_ID`), the strict CSP and HSTS intact, and the JS stays under a
+size budget. CI (`ci.yml`, job `er-connect`) runs the same build.
+
+The page works before and without JavaScript: `index.html` carries a static
+copy of the header, hero, Buy/Download callouts and footer, and React replaces
+it on start (keep `index.html` and `src/App.tsx` in step; the check compares the
+button classes and links). Manrope is self-hosted from `@fontsource-variable/manrope`
+(no Google Fonts request), the Help dialog is loaded on demand, and
+`vite.config.ts` strips a dead `lucide-react` re-export out of
+`@companionintelligence/icons` (it pulled ~790 KB of unused icons into the
+bundle; the plugin warns if the package changes shape).
 
 `dist/` is what actually gets deployed — `wrangler.jsonc`'s
 `assets.directory` points at it. `public/_headers` (security headers, CSP)
@@ -100,7 +127,17 @@ npx wrangler deploy
 ```
 
 Needs a Cloudflare account with access to `ci.computer` — run `npx wrangler
-login` first if not already authenticated (opens a browser tab once).
+login` first if not already authenticated (opens a browser tab once). Use
+wrangler 4: the assets-only `wrangler.jsonc` has no `main`, which wrangler 3.x
+rejects with "Missing entry-point". Build with `GA_MEASUREMENT_ID` set (the
+repo variable's value) or the live page ships without analytics.
+
+After any deploy, check that it is actually live, not just green:
+
+```bash
+curl -s https://er.ci.computer/ | grep -c 'href="https://ci.computer/core"'   # 1 or more
+curl -sI https://er.ci.computer/robots.txt | head -1                         # HTTP/2 200
+```
 
 ### Or via GitHub Actions
 
@@ -117,7 +154,9 @@ API Tokens → **Create Token** → "Edit Cloudflare Workers" template, scoped
 to the account that owns `ci.computer`; the account ID from the dashboard
 sidebar under Workers & Pages → Overview. `NODE_AUTH_TOKEN` for the private
 registry install comes from the workflow's own `secrets.GITHUB_TOKEN` — no
-extra secret needed for that part.
+extra secret needed for that part. The workflow pins `wranglerVersion: '4'`,
+fails fast with a clear message when the two secrets are missing, and ends by
+fetching the live site to prove the new build is served.
 
 ### Give a future Claude session Cloudflare access instead
 
@@ -160,8 +199,10 @@ normal browser window (not a private window if you want step 7 to work).
    code and strips the query string from the address bar.
 5. **Check the result.** A green pill with your name (or "Signed in") appears
    beside the *Sign in* label, and the button becomes **Sign out**. In DevTools → Application →
-   Local Storage → `https://er.ci.computer` there is an
-   `er-connect:oidc-tokens` entry.
+   Session Storage → `https://er.ci.computer` there is an
+   `er-connect:oidc-tokens` entry (session, not local, storage on purpose). If the
+   token request fails with a CORS error, CI-Portal's allowed origins do not
+   include `https://er.ci.computer` yet; that is a CI-Portal change, not this repo.
 6. **Enter your Hub host** (for example `ci-hub.local` or `192.168.1.50`) and
    click **Connect**. Expect a **Saved http://<host>:8787 — not verified** pill
    with a note under it (*Browsers can't test a plain-http host from this page*),
@@ -169,9 +210,10 @@ normal browser window (not a private window if you want step 7 to work).
    and browsers refuse plain-http requests from an https page (mixed content),
    so er.ci.computer cannot check it. A hub served over `https://` gets a real
    green/red result. The host is remembered either way.
-7. **Reload the page.** You should stay signed in and, with a remembered host,
+7. **Reload the page.** You should stay signed in (same tab) and, with a remembered host,
    see the same Connect result again with no clicks — that is the auto-reconnect.
    Click **Sign out** and reload: back to the **Sign in with Companion Intelligence** button.
+   Closing the tab also signs out; the Hub address is still remembered.
 
 Then finish on the phone: open **CI Companion** in the Even app → Settings →
 CI-Hub, enter the same host, and tap a **Quick connect** preset. That is where
@@ -183,16 +225,21 @@ the connection is actually verified end to end.
 |---|---|
 | Error text under the sign-in button, or a Portal page saying invalid client / invalid redirect | The client or redirect isn't registered on the Portal environment you hit. Check `PUBLIC_CLIENTS` and `FIXED_PUBLIC_REDIRECTS` in CI-Portal, and that the page is served from exactly `https://er.ci.computer/`. **Reaching the login page proves nothing** — an unauthenticated `/oauth2/authorize` redirects to `/login` for *any* client id or redirect (checked 2026-09-28 with a made-up client), so registration errors only appear after you log in. |
 | Bounced back to er.ci.computer but still signed out, with an error | The code exchange failed. Open DevTools → Network and look at the `…/oauth2/token` request: `invalid_grant` usually means the tab was reloaded mid-flow (the PKCE verifier is per-tab, in `sessionStorage`) — just start again. |
-| Signed out on every reload | Storage is blocked or the window is private. `localStorage` must be writable for `https://er.ci.computer`. |
+| Signed out on every reload | Storage is blocked or the window is private. `sessionStorage` (sign-in) and `localStorage` (Hub address) must be writable for `https://er.ci.computer`. The page still works with storage blocked; it just remembers nothing, and sign-in says why it cannot continue. |
+| "Couldn't reach the Companion Intelligence sign-in service" | The token request was blocked or offline. If it happens on a good connection, check the browser console for a CORS error (see step 5). |
 | Red "Unreachable" on an `https://` hub | A real network failure — the host, port 8787, DNS, or a certificate. Test `curl -I https://<host>:8787` from the same machine. |
 
 ## Files
 
-- `src/App.tsx` — page layout: header, hero, the Install/Connect/Talk `Stepper`, footer, `HelpDialog`.
+- `src/App.tsx` — page layout: header, hero and Buy/Download callouts, the Install/Connect/Talk `Stepper`, footer, lazily loaded `HelpDialog`.
+- `src/links.ts` — every outbound URL and the shared Buy/Download labels, in one place (read by `scripts/check-dist.mjs`).
+- `src/lib/storage.ts` — Web Storage wrappers that never throw; `src/components/ErrorBoundary.tsx` keeps one render error from blanking the page.
 - `src/components/HelpDialog.tsx` — the tabbed help modal (how it works, screenshots, manual config, backends, troubleshooting).
+- `index.html` / `404.html` — static first-paint shell and the branded 404 (both Vite entries, so they share the app's CSS, tokens and font).
+- `scripts/check-dist.mjs` — build-time assertions on `dist/`.
 - `src/auth/` — `pkce.ts` (RFC 7636 helpers), `oidc.ts` (the CI-Portal Authorization Code + PKCE flow, mirrors `ci-glasses-app/src/auth/OidcClient.ts`), `useConnect.ts` (the React hook wiring sign-in + Hub-connect lifecycle together, including auto-reconnect on boot).
 - `src/hub/connect.ts` — CI-Hub host normalization and the `agent-hub` reachability probe, mirrors `ci-glasses-app/src/config/HubPresets.ts`.
-- `public/` — favicon, screenshots (copies of `ci-glasses-app/assets/screenshots/01-empty-quick-actions.png` and `03-settings.png` — refresh them whenever the app's look changes), and `_headers` — copied into `dist/` verbatim on build.
+- `public/` — icons and OG image (from the CI-Common mark), `site.webmanifest`, `robots.txt`, `sitemap.xml`, screenshots (WebP, ~600 px wide, resized from `ci-glasses-app/assets/screenshots/01-empty-quick-actions.png` and `03-settings.png` — refresh them whenever the app's look changes), and `_headers` — copied into `dist/` verbatim on build. Hashed build output goes to `/static/` (cached immutable); `/assets/` is for unhashed images.
 - `wrangler.jsonc` — the Worker config: name (`ci-er-connect`), `dist/` as the assets directory, and the `er.ci.computer` custom-domain route.
 
 ## Analytics (GA4)
@@ -203,4 +250,6 @@ Google Analytics 4 is injected at build time by `vite.config.ts` when `GA_MEASUR
 gh variable set GA_MEASUREMENT_ID --body G-XXXX --repo companionintelligence/CI-Even-Realities
 ```
 
-The ID is never committed. The init script is an external `ga-init.js` so the CSP in `public/_headers` needs no `unsafe-inline`. If Google's script is blocked or offline the page is unaffected.
+The ID is never committed. The init script is an external `ga-init.js` so the CSP in `public/_headers` needs no `unsafe-inline`. If Google's script is blocked or offline the page is unaffected. The footer discloses analytics (and links Privacy) only when the build has a valid ID, and tags are injected into the freshly built HTML on every build, so rebuilding never duplicates them.
+
+Cloudflare's dashboard can also auto-inject Web Analytics and bot-detection scripts on this hostname; the strict CSP blocks them and logs two console errors. Turn those off for `er.ci.computer` in the dashboard (Web Analytics, and Security → Bots → JavaScript Detections) instead of loosening the CSP.

@@ -56,6 +56,51 @@ via its own `package.json` / Docker tag.
   with the two paths that actually apply now (local `wrangler deploy`, or
   the GitHub Actions workflow).
 
+### er-connect: cross-links and audit fixes
+
+- **Cross-links to the rest of Companion Intelligence.** The header logo and a
+  footer link go to <https://ci.computer>; the hero and the Connect step carry
+  **Buy Companion Core** (<https://ci.computer/core>) and **Download Companion**
+  (<https://ci.computer/download>); **Docs** links to the matching docs page; the
+  footer adds Support, Privacy and Terms. All URLs live in `er-connect/src/links.ts`.
+- **No more promises the product cannot keep.** The Install step claimed an Even
+  Hub store listing, a QR code and a sideloadable `.ehpk`. None exists (the docs
+  say developer preview), so the step now says so and links the docs install steps
+  and Discord. Links to the private GitHub repo (404 for visitors) are gone, the
+  JSON-LD no longer declares a `SoftwareApplication`, and customer-facing copy
+  says Companion Hub / Companion Memory instead of repo names.
+- **Works without JavaScript and when blocked.** `index.html` carries a static
+  shell (header, hero, callouts, footer, `<noscript>` note) so crawlers and
+  restrictive webviews see content and working links. Manrope is self-hosted, the
+  Help dialog loads on demand, React is its own cached chunk, and a dead
+  `lucide-react` re-export is stripped from the icons package: the JS dropped
+  from ~1.19 MB to ~440 KB. Screenshots are WebP with dimensions; hashed output
+  under `/static/` is cached immutable; HSTS added.
+- **Sign-in hardening.** Tokens moved from `localStorage` to `sessionStorage`
+  and `offline_access` was dropped (the page only shows who is signed in, and
+  Google's tag runs on the same origin). All storage access is guarded (a throwing
+  `localStorage` used to blank the page), there is a top-level error boundary,
+  `boot()` can no longer leave an unhandled rejection, a denied-consent redirect
+  (`?error=…&state=…`) now shows its message and the query string is always
+  stripped, and a blocked token request says what happened instead of "Failed to
+  fetch".
+- **Branded 404 and metadata.** The 404 page shares the app's CSS and links back to
+  ci.computer. Icons, favicon (`.ico` + SVG), web manifest and OG image are
+  regenerated from the CI-Common mark; the sitemap no longer carries a stale
+  `<lastmod>`.
+- **Build-time checks.** `npm run build` now ends with `scripts/check-dist.mjs`
+  (cross-links, SEO tags, JSON-LD, GA4 exactly once, CSP, bundle budget), and
+  `ci.yml` gained an `er-connect` typecheck and build job.
+- **Deploy workflow.** `deploy-er-connect.yml` pins wrangler 4 (3.x fails the
+  assets-only config with "Missing entry-point"), fails fast with a clear message
+  when `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are missing, and verifies
+  the live site afterwards. The secrets still have to be added by someone with
+  access.
+- **Docs.** Even Hub links use `hub.evenrealities.com` (the developer console is
+  `/hub`); the store-listing copy says source-available rather than open source,
+  scopes "no telemetry" to the glasses app, and uses ci.computer/support as the
+  support URL.
+
 ## [0.5.2] — Companion teal-navy redesign of the phone UI
 
 ### Changed

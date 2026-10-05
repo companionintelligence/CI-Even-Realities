@@ -168,7 +168,7 @@ npm run build
 evenhub-cli publish dist/
 ```
 
-Or upload `dist/` manually at [evenhub.evenrealities.com](https://evenhub.evenrealities.com/).
+Or upload `dist/` manually at the [Even Hub developer console](https://hub.evenrealities.com/hub) (needs an Even Realities developer login).
 
 ---
 

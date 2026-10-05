@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   Tabs,
@@ -20,8 +21,11 @@ import {
   Button,
   ScrollArea,
 } from '@companionintelligence/ui';
+import { DISCORD_URL, DOCS_TROUBLESHOOTING_URL, DOCS_URL, SUPPORT_URL } from '../links';
 
-interface HelpDialogProps {
+const LINK = 'rounded-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+export interface HelpDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -32,7 +36,7 @@ const BACKEND_KINDS = [
   { kind: 'claude-cli', desc: 'agent-hub spawning Claude Code — supports permission prompts, ring-approved.' },
   { kind: 'codex-cli', desc: 'agent-hub spawning Codex CLI — same permission-prompt flow as Claude.' },
   { kind: 'openclaw', desc: 'agent-hub forwarding to an OpenClaw Gateway.' },
-  { kind: 'memory', desc: 'Recalls from Companion Memory (CI-Server) and streams the block back.' },
+  { kind: 'memory', desc: 'Recalls from Companion Memory and streams the block back.' },
 ];
 
 const MANUAL_CONFIG = [
@@ -52,15 +56,19 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
       <DialogContent size="xl" className="max-h-[85vh] w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>Help</DialogTitle>
+          <DialogDescription className="sr-only">
+            How CI Companion works, screenshots, manual setup, backend kinds and troubleshooting.
+          </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="how" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="overflow-x-auto px-5 pt-3">
-            <TabsList>
-              <TabsTrigger value="how">How it works</TabsTrigger>
-              <TabsTrigger value="shots">Screenshots</TabsTrigger>
-              <TabsTrigger value="manual">Manual config</TabsTrigger>
-              <TabsTrigger value="backends">Backends</TabsTrigger>
-              <TabsTrigger value="trouble">Troubleshooting</TabsTrigger>
+          <div className="px-5 pt-3">
+            {/* Wraps on a phone instead of scrolling sideways and clipping the last tabs. */}
+            <TabsList className="h-auto w-full flex-wrap justify-start">
+              <TabsTrigger className="h-8 flex-none" value="how">How it works</TabsTrigger>
+              <TabsTrigger className="h-8 flex-none" value="shots">Screenshots</TabsTrigger>
+              <TabsTrigger className="h-8 flex-none" value="manual">Manual config</TabsTrigger>
+              <TabsTrigger className="h-8 flex-none" value="backends">Backends</TabsTrigger>
+              <TabsTrigger className="h-8 flex-none" value="trouble">Troubleshooting</TabsTrigger>
             </TabsList>
           </div>
 
@@ -74,7 +82,7 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                 <li>The G2's BLE mic captures your voice; the phone app transcribes it.</li>
                 <li>
                   The app sends your question to whichever backend you picked in Settings — a
-                  direct OpenAI-compatible URL, or your CI-Hub via <code>agent-hub</code>.
+                  direct OpenAI-compatible URL, or your Companion Hub via <code>agent-hub</code>.
                 </li>
                 <li>
                   Your AI (Ollama, Claude Code, Codex, OpenClaw, OpenAI, or Companion Memory)
@@ -87,10 +95,13 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
             <TabsContent value="shots" className="mt-0 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <figure className="text-center">
                 <img
-                  src="/assets/screenshot-chat.png"
+                  src="/assets/screenshot-chat.webp"
                   alt="CI Companion Chat tab — quick-prompt chips, glasses-display preview, and mic dock"
-                  className="mx-auto mb-2 max-w-full rounded-lg border border-border"
+                  width={600}
+                  height={772}
+                  className="mx-auto mb-2 h-auto w-full max-w-[16rem] rounded-lg border border-border"
                   loading="lazy"
+                  decoding="async"
                 />
                 <figcaption className="text-xs text-muted-foreground">
                   Chat — quick prompts, live glasses preview, mic dock
@@ -98,10 +109,13 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
               </figure>
               <figure className="text-center">
                 <img
-                  src="/assets/screenshot-settings.png"
+                  src="/assets/screenshot-settings.webp"
                   alt="CI Companion Settings tab — Backend Kind picker"
-                  className="mx-auto mb-2 max-w-full rounded-lg border border-border"
+                  width={600}
+                  height={772}
+                  className="mx-auto mb-2 h-auto w-full max-w-[16rem] rounded-lg border border-border"
                   loading="lazy"
+                  decoding="async"
                 />
                 <figcaption className="text-xs text-muted-foreground">
                   Settings — pick a Backend Kind, then set its URL
@@ -111,7 +125,7 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
 
             <TabsContent value="manual" className="mt-0 space-y-3 text-sm">
               <p className="text-muted-foreground">
-                For bringing your own OpenAI-compatible endpoint instead of a CI-Hub.
+                For bringing your own OpenAI-compatible endpoint instead of a Companion Hub.
               </p>
               <Table>
                 <TableHeader>
@@ -188,23 +202,21 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                 <AccordionItem value="stuck">
                   <AccordionTrigger>Still stuck?</AccordionTrigger>
                   <AccordionContent>
-                    Open an issue on{' '}
-                    <a
-                      href="https://github.com/companionintelligence/CI-Even-Realities/issues"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      GitHub
+                    Read the{' '}
+                    <a href={DOCS_TROUBLESHOOTING_URL} className={LINK}>
+                      troubleshooting guide
                     </a>{' '}
-                    or check the{' '}
-                    <a
-                      href="https://github.com/companionintelligence/CI-Even-Realities/tree/main/docs"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
+                    or the{' '}
+                    <a href={DOCS_URL} className={LINK}>
                       full docs
+                    </a>
+                    , contact{' '}
+                    <a href={SUPPORT_URL} className={LINK}>
+                      Companion Intelligence support
+                    </a>
+                    , or ask in the{' '}
+                    <a href={DISCORD_URL} className={LINK}>
+                      Discord
                     </a>
                     .
                   </AccordionContent>

@@ -2,7 +2,7 @@
 
 > **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
 
-For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect app](https://er.ci.computer) ([source](er-connect/)) walks through installing the app, signing in with Companion Intelligence, and connecting a CI-Hub in three steps.
+For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect app](https://er.ci.computer) ([source](er-connect/)) walks through setting up CI Companion, signing in with Companion Intelligence, and connecting a Companion Hub in three steps (developer preview: the app is not in the Even Hub store yet).
 
 [![Even Hub SDK](https://img.shields.io/badge/Even%20Hub%20SDK-0.0.16-blue)](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
@@ -57,7 +57,7 @@ In a plain headless browser the bridge never resolves, so both deep-links fall t
 
 ## What this is
 
-`ci-even-realities` is an [Even Hub](https://evenhub.evenrealities.com/) app for the **Even Realities G2** smart glasses, plus a sibling `agent-hub/` Node service that brokers local agents.
+`ci-even-realities` is an [Even Hub](https://hub.evenrealities.com/) app for the **Even Realities G2** smart glasses, plus a sibling `agent-hub/` Node service that brokers local agents.
 
 ```mermaid
 flowchart LR
@@ -317,7 +317,8 @@ ci-even-realities/
 
 | Resource | Link |
 |---|---|
-| Even Hub portal | <https://evenhub.evenrealities.com/> |
+| Even Hub (portal and docs) | <https://hub.evenrealities.com/> |
+| Even Hub developer console (upload; needs an Even Realities developer login) | <https://hub.evenrealities.com/hub> |
 | Even Hub SDK (npm) | <https://www.npmjs.com/package/@evenrealities/even_hub_sdk> |
 | Even Hub CLI (npm) | <https://www.npmjs.com/package/@evenrealities/evenhub-cli> |
 | Even Realities design guidelines (Figma) | <https://www.figma.com/design/X82y5uJvqMH95jgOfmV34j/> |
