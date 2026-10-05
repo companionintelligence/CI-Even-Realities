@@ -7,17 +7,21 @@
  * What it guards (each one has regressed, or was found missing, before):
  *   - the cross-links to ci.computer (home, BUY /core, DOWNLOAD /download) and the
  *     matching docs page exist as real <a href> elements in the static HTML, in the
- *     404 page and in the JS bundle, and open in the same tab
+ *     404 page and in the JS bundle, and open in the same tab; the Buy / Download
+ *     callouts on the 404 carry the same labels and button classes as the hero
  *   - no links to the private GitHub repo, no Google Fonts, no legacy Even Hub host
  *   - SEO and metadata: one title / canonical / og:image, valid JSON-LD, robots.txt,
  *     sitemap.xml, web manifest, 1200x630 OG image, icons
- *   - GA4 is emitted exactly once when GA_MEASUREMENT_ID is a valid G-… ID, and not
- *     at all when it is not (idempotent: rebuilding never duplicates tags)
+ *   - GA4 is emitted exactly once per page when the build was given a valid G-… ID
+ *     (from the environment or a Vite .env file; the output is the source of truth),
+ *     and not at all when it was not (idempotent: rebuilding never duplicates tags);
+ *     the emitted init never sends the OAuth callback code/state to Google
  *   - the static first-paint shell uses the same button classes as the kit
  *   - the CSP stays strict and bundle output stays under a size budget
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -101,6 +105,12 @@ for (const [name, html] of [
 ]) {
   const home = anchorFor(html, links.CI_SITE_URL);
   check(home.length > 0, `${name}: no <a href="${links.CI_SITE_URL}"> link back to the main site`);
+  // BUY and DOWNLOAD on every user-facing page, with the shared labels.
+  check(html.includes(`>${links.BUY_LABEL}</a>`), `${name}: BUY link text must be "${links.BUY_LABEL}"`);
+  check(html.includes(`>${links.DOWNLOAD_LABEL}</a>`), `${name}: DOWNLOAD link text must be "${links.DOWNLOAD_LABEL}"`);
+  for (const key of ['BUY_URL', 'DOWNLOAD_URL', 'DOCS_URL', 'SUPPORT_URL']) {
+    check(anchorFor(html, links[key]).length > 0, `${name}: missing <a href="${links[key]}"> (${key})`);
+  }
 }
 for (const key of ['CI_SITE_URL', 'BUY_URL', 'DOWNLOAD_URL', 'DOCS_URL', 'SUPPORT_URL', 'PRIVACY_URL', 'TERMS_URL']) {
   check(anchorFor(indexHtml, links[key]).length > 0, `index.html static shell: missing <a href="${links[key]}"> (${key})`);
@@ -109,8 +119,6 @@ for (const key of ['CI_SITE_URL', 'BUY_URL', 'DOWNLOAD_URL', 'DOCS_URL', 'SUPPOR
 // BUY and DOWNLOAD must appear at least twice in the static shell: hero callout + footer.
 check(anchorFor(indexHtml, links.BUY_URL).length >= 2, 'index.html: expected the BUY callout in both the hero and the footer');
 check(anchorFor(indexHtml, links.DOWNLOAD_URL).length >= 2, 'index.html: expected the DOWNLOAD callout in both the hero and the footer');
-check(indexHtml.includes(`>${links.BUY_LABEL}</a>`), `index.html: BUY link text must be "${links.BUY_LABEL}"`);
-check(indexHtml.includes(`>${links.DOWNLOAD_LABEL}</a>`), `index.html: DOWNLOAD link text must be "${links.DOWNLOAD_LABEL}"`);
 check(jsText.includes(links.BUY_LABEL) && jsText.includes(links.DOWNLOAD_LABEL), 'JS bundle: callout labels missing');
 for (const [name, html] of [
   ['index.html', indexHtml],
@@ -193,28 +201,89 @@ for (const m of jsText.matchAll(/["'`](\/assets\/[\w.-]+\.(?:png|webp|svg))["'`]
   check(existsSync(join(dist, m[1])), `JS bundle: ${m[1]} does not exist in dist`);
 }
 
-// --- GA4: exactly once when configured, not at all when not --------------------------
-const gaId = process.env.GA_MEASUREMENT_ID ?? '';
-const gaValid = /^G-[A-Z0-9]+$/.test(gaId);
-for (const [name, html] of [
+// --- GA4: exactly once per page when the build had a valid ID, not at all when not ----
+// The dist output is the source of truth for "was GA configured?": vite.config.ts reads
+// GA_MEASUREMENT_ID from the environment AND from .env / .env.local / .env.<mode>, and
+// this script must not disagree with it. An explicit GA_MEASUREMENT_ID in the
+// environment (CI, the deploy workflow) is additionally cross-checked, so a deploy that
+// was meant to ship analytics cannot silently ship without it.
+const gaIdRe = /^G-[A-Z0-9]+$/;
+const envGaId = process.env.GA_MEASUREMENT_ID ?? '';
+const gaLoaderRe = /googletagmanager\.com\/gtag\/js\?id=([^"&]*)"/;
+const builtGaId = (indexHtml.match(gaLoaderRe) ?? [])[1] ?? '';
+const gaInitPath = join(dist, 'ga-init.js');
+const gaBuilt = builtGaId !== '' || existsSync(gaInitPath) || count(indexHtml, 'src="/ga-init.js"') > 0;
+const gaExpected = envGaId !== '' ? gaIdRe.test(envGaId) : gaBuilt;
+const gaPages = [
   ['index.html', indexHtml],
   ['404.html', notFoundHtml],
-]) {
-  const loaders = count(html, 'googletagmanager.com/gtag/js');
-  const inits = count(html, 'src="/ga-init.js"');
-  if (gaValid) {
+];
+
+if (envGaId !== '' && gaIdRe.test(envGaId)) {
+  check(builtGaId === envGaId, `GA_MEASUREMENT_ID=${envGaId} is set but index.html ${builtGaId ? `loads ${builtGaId}` : 'has no GA tags'}`);
+} else if (envGaId !== '') {
+  check(!gaBuilt, `GA_MEASUREMENT_ID is set but is not a valid G-… ID; GA tags must not be emitted`);
+}
+
+if (gaExpected) {
+  check(gaIdRe.test(builtGaId), `index.html: GA tags present but the measurement ID "${builtGaId}" is not a valid G-… ID`);
+  for (const [name, html] of gaPages) {
+    const loaders = count(html, 'googletagmanager.com/gtag/js');
+    const inits = count(html, 'src="/ga-init.js"');
     check(loaders === 1, `${name}: expected exactly one gtag loader, found ${loaders}`);
     check(inits === 1, `${name}: expected exactly one ga-init.js tag, found ${inits}`);
-    check(html.includes(`gtag/js?id=${gaId}`), `${name}: gtag loader does not use GA_MEASUREMENT_ID`);
-  } else {
-    check(loaders === 0 && inits === 0, `${name}: GA tags emitted without a valid GA_MEASUREMENT_ID`);
+    check(html.includes(`gtag/js?id=${builtGaId}"`), `${name}: gtag loader does not use ${builtGaId}`);
   }
-}
-if (gaValid) {
-  check(existsSync(join(dist, 'ga-init.js')), 'ga-init.js was not emitted');
-  check(count(read(join(dist, 'ga-init.js')), `gtag('config','${gaId}')`) === 1, 'ga-init.js: expected one gtag config call');
+  check(existsSync(gaInitPath), 'ga-init.js was not emitted');
+  if (existsSync(gaInitPath)) {
+    const gaInit = read(gaInitPath);
+    check(count(gaInit, `gtag('config','${builtGaId}'`) === 1, 'ga-init.js: expected exactly one gtag config call for the built ID');
+    checkGaInitPrivacy(gaInit);
+  }
+  check(jsText.includes('uses Google Analytics'), 'JS bundle: the footer must disclose Google Analytics when GA is enabled');
 } else {
-  check(!existsSync(join(dist, 'ga-init.js')), 'ga-init.js emitted without a valid GA_MEASUREMENT_ID');
+  for (const [name, html] of gaPages) {
+    check(count(html, 'googletagmanager.com/gtag/js') === 0 && count(html, 'src="/ga-init.js"') === 0, `${name}: GA tags emitted without a valid GA_MEASUREMENT_ID`);
+  }
+  check(!existsSync(gaInitPath), 'ga-init.js emitted without a valid GA_MEASUREMENT_ID');
+  check(!jsText.includes('uses Google Analytics'), 'JS bundle: the footer discloses Google Analytics but GA is not enabled');
+}
+
+/**
+ * The OAuth redirect lands on /?code=…&state=… and ga-init.js runs before the app can
+ * scrub the address bar, so the config call must set a page_location without them.
+ * Run the real emitted file against such a URL and inspect what it queues for gtag.js.
+ */
+function checkGaInitPrivacy(source) {
+  const run = (href) => {
+    const url = new URL(href);
+    const sandbox = {
+      location: { href: url.href, origin: url.origin, pathname: url.pathname },
+      URL,
+      Date,
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(source, sandbox);
+    const config = [...sandbox.dataLayer].map((args) => [...args]).find((args) => args[0] === 'config');
+    return config?.[2]?.page_location;
+  };
+  const secret = 'SECRETCODE123';
+  const callbacks = [
+    `https://er.ci.computer/?code=${secret}&state=STATE456`,
+    `https://er.ci.computer/?state=STATE456&error=access_denied&error_description=${secret}`,
+    `https://er.ci.computer/?iss=https%3A%2F%2Fhub.ci.computer&code=${secret}&state=STATE456#frag`,
+  ];
+  for (const callback of callbacks) {
+    const sent = run(callback);
+    check(typeof sent === 'string', `ga-init.js: config call has no page_location, so GA would read the raw URL (${callback})`);
+    if (typeof sent !== 'string') continue;
+    check(!/[?&](code|state|error|error_description|iss)=/.test(sent) && !sent.includes(secret), `ga-init.js: page_location still carries OAuth callback parameters: ${sent}`);
+    check(sent.startsWith('https://er.ci.computer/'), `ga-init.js: page_location lost the page address: ${sent}`);
+  }
+  const campaign = run('https://er.ci.computer/?utm_source=ci&utm_medium=site&code=SECRETCODE123');
+  check(campaign === 'https://er.ci.computer/?utm_source=ci&utm_medium=site', `ga-init.js: should keep utm_* parameters for campaign attribution and drop code (got ${campaign})`);
+  check(run('https://er.ci.computer/') === 'https://er.ci.computer/', 'ga-init.js: a plain URL must be reported unchanged');
 }
 
 // --- headers / CSP -------------------------------------------------------------------
@@ -255,6 +324,13 @@ try {
   for (const [label, classes] of Object.entries(expected)) {
     check(indexHtml.includes(`class="${classes}"`), `index.html static shell: ${label} classes drifted from the kit's buttonVariants`);
   }
+  // The 404 carries the same two hero callouts, so it must use the same classes.
+  for (const [label, classes] of [
+    ['404 BUY (default)', expected['hero BUY (default)']],
+    ['404 DOWNLOAD (outline)', expected['hero DOWNLOAD (outline)']],
+  ]) {
+    check(notFoundHtml.includes(`class="${classes}"`), `404.html: ${label} classes drifted from the kit's buttonVariants`);
+  }
 } catch (error) {
   fail(`could not load @companionintelligence/ui to compare button classes: ${error.message}`);
 }
@@ -268,5 +344,5 @@ function finish() {
     console.error('');
     process.exit(1);
   }
-  console.log(`check-dist: ok (${jsFiles.length} JS files, ${(jsFiles.reduce((s, f) => s + statSync(f).size, 0) / 1024).toFixed(0)} KB; GA4 ${gaValid ? 'enabled' : 'off'})`);
+  console.log(`check-dist: ok (${jsFiles.length} JS files, ${(jsFiles.reduce((s, f) => s + statSync(f).size, 0) / 1024).toFixed(0)} KB; GA4 ${gaExpected ? `enabled (${builtGaId})` : 'off'})`);
 }

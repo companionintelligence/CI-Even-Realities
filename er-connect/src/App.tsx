@@ -155,10 +155,11 @@ export function App() {
                     <Badge variant="secondary">Developer preview</Badge>
                     <h3 className="mt-3 text-base font-bold">Not in the Even Hub store yet</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      CI Companion has no public download or store listing yet, so there is nothing
-                      to install from this page. If Companion Intelligence has given you access,
-                      follow the install steps in the docs. To ask about access or follow progress,
-                      join the Discord.
+                      The CI Companion glasses app has no public download or store listing yet, so
+                      there is nothing to install from this page. (Download Companion above is
+                      Companion Hub, a separate app, not the glasses app.) If Companion
+                      Intelligence has given you access, follow the install steps in the docs. To
+                      ask about access or follow progress, join the Discord.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">

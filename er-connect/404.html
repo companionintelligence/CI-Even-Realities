@@ -17,7 +17,9 @@
     <!--
       Served by the Worker's not_found_handling for any unknown path, so every
       URL here is absolute. Styled with the same tokens and Manrope as the app
-      (the stylesheet is processed by Vite; this page has no script).
+      (the stylesheet is processed by Vite; this page has no script). The Buy /
+      Download callouts use the same labels, URLs and button classes as the hero
+      in index.html; scripts/check-dist.mjs fails the build if they drift.
     -->
     <main class="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-4 px-5 py-12 text-center">
       <a href="https://ci.computer" title="Companion Intelligence" class="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -26,13 +28,18 @@
       <h1 class="text-2xl font-extrabold tracking-tight">Page not found</h1>
       <p class="max-w-sm text-sm text-muted-foreground">That page doesn't exist. Head back to the main site, or to the CI Companion setup page.</p>
       <div class="grid w-full max-w-sm grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2" href="https://ci.computer">Back to ci.computer</a>
-        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2" href="/">CI Companion setup</a>
+        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2" href="https://ci.computer/core">Buy Companion Core</a>
+        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2" href="https://ci.computer/download">Download Companion</a>
       </div>
-      <p class="text-xs text-muted-foreground">
+      <p class="max-w-sm text-xs text-muted-foreground">
+        Companion Core: a private, cloud-free AI lab. Companion Hub: turn any computer into a home AI hub.
+      </p>
+      <nav aria-label="Companion Intelligence" class="flex flex-wrap items-center justify-center text-xs text-muted-foreground">
+        <a class="inline-flex min-h-11 items-center px-2.5 underline underline-offset-4 hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer">Back to ci.computer</a>
+        <a class="inline-flex min-h-11 items-center px-2.5 underline underline-offset-4 hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/">CI Companion setup</a>
         <a class="inline-flex min-h-11 items-center px-2.5 underline underline-offset-4 hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities">Docs</a>
         <a class="inline-flex min-h-11 items-center px-2.5 underline underline-offset-4 hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/support">Support</a>
-      </p>
+      </nav>
     </main>
   </body>
 </html>
