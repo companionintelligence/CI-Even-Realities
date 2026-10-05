@@ -1,5 +1,7 @@
 import {
+  Badge,
   Button,
+  buttonVariants,
   Card,
   CardContent,
   Logo,
@@ -10,45 +12,134 @@ import {
   StepTriggerList,
   StepTrigger,
   StepContent,
-  AppCard,
-  QrCode,
 } from '@companionintelligence/ui';
-import { useState } from 'react';
-import { useConnect } from './auth/useConnect';
-import { HelpDialog } from './components/HelpDialog';
+import { useCallback, useState, type ComponentType, type FormEvent } from 'react';
+import { returnedFromSignIn, useConnect } from './auth/useConnect';
+import type { HelpDialogProps } from './components/HelpDialog';
+import {
+  BUY_LABEL,
+  BUY_URL,
+  CI_SITE_URL,
+  DISCORD_URL,
+  DOCS_INSTALL_URL,
+  DOCS_URL,
+  DOWNLOAD_LABEL,
+  DOWNLOAD_URL,
+  PRIVACY_URL,
+  SUPPORT_URL,
+  TERMS_URL,
+} from './links';
 
-const EVEN_HUB_URL = 'https://evenhub.evenrealities.com/';
-const RELEASES_URL = 'https://github.com/companionintelligence/CI-Even-Realities/releases';
-const GITHUB_URL = 'https://github.com/companionintelligence/CI-Even-Realities';
+// The Help dialog (Dialog, Tabs, Table, Accordion, ScrollArea, two screenshots) is
+// only needed once someone opens it, so it is fetched on demand. This page also
+// loads in restrictive webviews: keep the first paint small.
+const loadHelp = () => import('./components/HelpDialog');
+
+const SKIP_LINK = 'sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground';
+const FOCUS_RING = 'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const TEXT_LINK = `underline underline-offset-4 hover:text-foreground ${FOCUS_RING}`;
+const FOOTER_LINK = `inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline ${FOCUS_RING}`;
+
+// index.html carries a static copy of the header, hero, callouts and footer so
+// the page has content before (and without) JavaScript. Keep the two in step;
+// scripts/check-dist.mjs fails the build if the links or button classes diverge.
+const FOOTER_LINKS = [
+  { href: CI_SITE_URL, label: 'Companion Intelligence' },
+  { href: BUY_URL, label: BUY_LABEL },
+  { href: DOWNLOAD_URL, label: DOWNLOAD_LABEL },
+  { href: DOCS_URL, label: 'Docs' },
+  { href: SUPPORT_URL, label: 'Support' },
+  { href: PRIVACY_URL, label: 'Privacy' },
+  { href: TERMS_URL, label: 'Terms' },
+];
 
 export function App() {
   const connect = useConnect();
-  const [step, setStep] = useState(0);
+  // Coming back from the sign-in service, land on the Connect step: that is where
+  // the signed-in state (or the error) is shown.
+  const [step, setStep] = useState(returnedFromSignIn ? 1 : 0);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [Help, setHelp] = useState<ComponentType<HelpDialogProps> | null>(null);
+  const [helpFailed, setHelpFailed] = useState(false);
+
+  const preloadHelp = useCallback(() => {
+    loadHelp().catch(() => {});
+  }, []);
+
+  const openHelp = useCallback(() => {
+    setHelpFailed(false);
+    if (Help) {
+      setHelpOpen(true);
+      return;
+    }
+    loadHelp()
+      .then((m) => {
+        setHelp(() => m.HelpDialog);
+        setHelpOpen(true);
+      })
+      .catch(() => setHelpFailed(true));
+  }, [Help]);
+
+  const onHubSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    connect.runConnect();
+  };
 
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-12 pt-8">
-      <header className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Logo variant="mark" size={28} />
+      <a href="#main" className={SKIP_LINK}>
+        Skip to main content
+      </a>
+      <header className="mb-8 flex items-center justify-between gap-3">
+        <a href={CI_SITE_URL} title="Companion Intelligence" className={`-m-1 flex items-center gap-2 p-1 ${FOCUS_RING}`}>
+          <Logo variant="mark" size={28} aria-hidden="true" />
           <span className="text-sm font-bold tracking-tight">CI Companion</span>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)}>
-          Help
-        </Button>
+          <span className="sr-only"> — Companion Intelligence home</span>
+        </a>
+        <nav aria-label="Page" className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={openHelp} onPointerEnter={preloadHelp} onFocus={preloadHelp}>
+            Help
+          </Button>
+          <a className={buttonVariants({ variant: 'ghost', size: 'sm' })} href={DOCS_URL}>
+            Docs
+          </a>
+        </nav>
       </header>
 
-      <main className="flex flex-1 flex-col gap-5">
+      {helpFailed ? (
+        <p role="status" className="mb-5 rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
+          Help couldn&apos;t load. Check your connection, or read the same information in the{' '}
+          <a className={TEXT_LINK} href={DOCS_URL}>
+            docs
+          </a>
+          .
+        </p>
+      ) : null}
+
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col gap-5 focus:outline-none">
         <div className="text-center">
           <h1 className="text-2xl font-extrabold tracking-tight">
             Talk to any AI through your <span className="text-primary">Even Realities G2</span>
           </h1>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Install CI Companion, sign in, and connect a backend — three steps to your glasses
-            talking to an AI.
+            Set up CI Companion, sign in, and connect a backend: three steps to your glasses talking
+            to an AI.
+          </p>
+          <div className="mx-auto mt-4 grid max-w-sm grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+            <a className={buttonVariants({ variant: 'default' })} href={BUY_URL}>
+              {BUY_LABEL}
+            </a>
+            <a className={buttonVariants({ variant: 'outline' })} href={DOWNLOAD_URL}>
+              {DOWNLOAD_LABEL}
+            </a>
+          </div>
+          <p className="mx-auto mt-2 max-w-sm text-xs text-muted-foreground">
+            Companion Core: a private, cloud-free AI lab. Companion Hub: turn any computer into a
+            home AI hub.
           </p>
         </div>
 
+        <h2 className="sr-only">Set up CI Companion</h2>
         <Card>
           <CardContent className="p-4">
             <Stepper currentStep={step}>
@@ -60,21 +151,24 @@ export function App() {
 
               <StepContent step={0}>
                 <div className="flex flex-col gap-3">
-                  <AppCard
-                    name="CI Companion"
-                    description="Voice-driven AI for your G2 glasses"
-                    icon={<Logo variant="mark" size={40} />}
-                    onInstall={() => window.open(EVEN_HUB_URL, '_blank', 'noopener')}
-                    installLabel="Get on Even Hub"
-                  />
-                  <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card p-4 text-center">
-                    <p className="text-sm font-medium">Scan to open on your phone</p>
-                    <QrCode value={EVEN_HUB_URL} fallback={EVEN_HUB_URL} size={140} />
-                    <p className="text-xs text-muted-foreground">Or sideload the latest .ehpk from GitHub</p>
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <Badge variant="secondary">Developer preview</Badge>
+                    <h3 className="mt-3 text-base font-bold">Not in the Even Hub store yet</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      CI Companion has no public download or store listing yet, so there is nothing
+                      to install from this page. If Companion Intelligence has given you access,
+                      follow the install steps in the docs. To ask about access or follow progress,
+                      join the Discord.
+                    </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => window.open(RELEASES_URL, '_blank', 'noopener')}>
-                    Sideload latest .ehpk
-                  </Button>
+                  <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+                    <a className={buttonVariants({ variant: 'outline', size: 'sm' })} href={DOCS_INSTALL_URL}>
+                      Read the install steps
+                    </a>
+                    <a className={buttonVariants({ variant: 'outline', size: 'sm' })} href={DISCORD_URL}>
+                      Ask for access on Discord
+                    </a>
+                  </div>
                   <Button size="sm" onClick={() => setStep(1)}>
                     Next: connect a backend
                   </Button>
@@ -102,28 +196,37 @@ export function App() {
                       </Button>
                     )}
                     {connect.signinError ? (
-                      <p className="mt-2 text-xs text-destructive">{connect.signinError}</p>
+                      <p role="alert" className="mt-2 text-xs text-destructive">
+                        {connect.signinError}
+                      </p>
                     ) : (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Once signed in, your Hub below is remembered and reconnects automatically.
+                        Sign in with your CI Account. Your Companion Hub address below is
+                        remembered in this browser.
                       </p>
                     )}
                   </div>
 
-                  <div>
+                  <form onSubmit={onHubSubmit} noValidate>
                     <Label htmlFor="hub-host" className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
-                      CI-Hub host
+                      Companion Hub address
                     </Label>
                     <div className="flex gap-2">
                       <Input
+                        className="flex-1"
                         id="hub-host"
+                        name="hub-host"
                         value={connect.hubUrl}
                         onChange={(e) => connect.setHubUrl(e.target.value)}
                         placeholder="ci-hub.local or 192.168.1.50"
+                        inputMode="url"
+                        autoCapitalize="off"
+                        autoCorrect="off"
                         autoComplete="off"
+                        enterKeyHint="go"
                         spellCheck={false}
                       />
-                      <Button size="sm" variant="secondary" onClick={connect.runConnect}>
+                      <Button type="submit" size="sm" variant="secondary">
                         Connect
                       </Button>
                     </div>
@@ -149,7 +252,16 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
-                  </div>
+                    <p className="mt-3 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+                      <span>No Companion Hub yet?</span>
+                      <a className={`${TEXT_LINK} py-1`} href={BUY_URL}>
+                        {BUY_LABEL}
+                      </a>
+                      <a className={`${TEXT_LINK} py-1`} href={DOWNLOAD_URL}>
+                        {DOWNLOAD_LABEL}
+                      </a>
+                    </p>
+                  </form>
 
                   <Button size="sm" onClick={() => setStep(2)}>
                     Next: start talking
@@ -174,17 +286,22 @@ export function App() {
         </Card>
       </main>
 
-      <footer className="mt-8 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
-          GitHub
-        </a>
-        <span>·</span>
-        <button type="button" className="hover:text-foreground" onClick={() => setHelpOpen(true)}>
-          Help
-        </button>
+      <footer className="mt-10 border-t border-border pt-3 text-xs text-muted-foreground">
+        <nav aria-label="Companion Intelligence" className="flex flex-wrap items-center justify-center">
+          {FOOTER_LINKS.map((link) => (
+            <a key={link.href} className={FOOTER_LINK} href={link.href}>
+              {link.label}
+            </a>
+          ))}
+        </nav>
+        <p className="mt-2 text-center">
+          This page remembers your Companion Hub address in this browser and keeps your sign-in only
+          while this tab is open.
+          {__GA_ENABLED__ ? ' It uses Google Analytics to count visits; see Privacy.' : ''}
+        </p>
       </footer>
 
-      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      {Help ? <Help open={helpOpen} onOpenChange={setHelpOpen} /> : null}
     </div>
   );
 }

@@ -15,7 +15,7 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 | **Version** | `0.5.2` |
 | **Categories** | Productivity · Developer Tools |
 | **Supported languages** | English (`en`) |
-| **Support URL** | <https://github.com/companionintelligence/CI-Even-Realities> |
+| **Support URL** | <https://ci.computer/support> |
 
 ## Short name / tagline
 
@@ -39,11 +39,11 @@ release. See [`../PUBLISHING.md`](../PUBLISHING.md) for the upload workflow.
 > Bring your own backend, too:
 > • **OpenAI / Claude / Gemini** via any OpenAI-compatible endpoint
 > • **Local LLMs** through Ollama, vLLM, llama.cpp (Hermes, Llama, Qwen…)
-> • **Coding agents** — Claude Code or Codex CLI, via the open-source `agent-hub`
+> • **Coding agents** — Claude Code or Codex CLI, via the source-available `agent-hub`
 > • **OpenClaw** Gateway
 >
 > Your prompts go only to the backend you configure, and sign-in goes only to the
-> CI-Portal issuer you set. Open source, no telemetry.
+> CI-Portal issuer you set. Source-available (PolyForm Noncommercial); the glasses app sends no telemetry.
 
 ## Permissions (user-visible justifications)
 

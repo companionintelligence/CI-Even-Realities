@@ -4,11 +4,17 @@
  * for the CLIENT_ID registration prerequisite.
  */
 import { createPkcePair, randomUrlToken, decodeJwtClaims } from './pkce';
+import { storageGet, storageRemove, storageSet } from '../lib/storage';
 
 export const ISSUER = 'https://hub.ci.computer/api/auth';
 export const CLIENT_ID = 'ci-er-connect';
-export const SCOPE = 'openid email profile offline_access';
+// No `offline_access`: this page only shows who is signed in, so it never needs
+// a long-lived refresh token sitting in the browser next to third-party analytics.
+export const SCOPE = 'openid email profile';
 
+// Tokens live in sessionStorage (this tab only), not localStorage: they are
+// bearer credentials, and this origin also runs Google's tag when analytics is
+// enabled. Closing the tab signs out; the Hub address is remembered separately.
 const TOKENS_KEY = 'er-connect:oidc-tokens';
 const PENDING_KEY = 'er-connect:oidc-pending';
 
@@ -69,10 +75,16 @@ export async function beginSignIn(): Promise<void> {
   const endpoints = await discover();
   const pair = await createPkcePair();
   const state = randomUrlToken(16);
-  sessionStorage.setItem(
+  const stored = storageSet(
+    'session',
     PENDING_KEY,
     JSON.stringify({ state, codeVerifier: pair.verifier, redirectUri: redirectUri() }),
   );
+  if (!stored) {
+    throw new Error(
+      "This browser is blocking storage, so sign-in can't continue. Allow site data for this page and try again.",
+    );
+  }
 
   const url = new URL(endpoints.authorization_endpoint);
   url.searchParams.set('response_type', 'code');
@@ -85,17 +97,30 @@ export async function beginSignIn(): Promise<void> {
   location.assign(url.toString());
 }
 
+/**
+ * A redirect back from the issuer: `state` plus either `code` (success) or
+ * `error` (the user denied consent, or the request was rejected). An error
+ * redirect carries no `code`, so requiring one would hide the failure.
+ */
 export function isCallback(): boolean {
   const p = new URLSearchParams(location.search);
-  return p.has('code') && p.has('state');
+  return p.has('state') && (p.has('code') || p.has('error'));
 }
 
 async function tokenRequest(endpoint: string, body: URLSearchParams): Promise<TokenSet> {
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-    body: body.toString(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: body.toString(),
+    });
+  } catch {
+    // fetch() rejects with an opaque TypeError for offline, DNS, TLS and blocked-by-CORS alike.
+    throw new Error(
+      "Couldn't reach the Companion Intelligence sign-in service from this page. Check your connection and try again. If it keeps failing, ask on Discord.",
+    );
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Token endpoint ${res.status}: ${text.slice(0, 200)}`);
@@ -113,16 +138,27 @@ async function tokenRequest(endpoint: string, body: URLSearchParams): Promise<To
 
 export async function completeSignInFromCallback(): Promise<TokenSet> {
   const p = new URLSearchParams(location.search);
-  if (p.get('error')) {
-    throw new Error(
-      `Authorization failed: ${p.get('error')}${p.get('error_description') ? ` — ${p.get('error_description')}` : ''}`,
-    );
-  }
+  const error = p.get('error');
   const code = p.get('code');
   const state = p.get('state');
-  const raw = sessionStorage.getItem(PENDING_KEY);
+  const raw = storageGet('session', PENDING_KEY);
+
+  // Whatever happens next, the one-time code, state and error must not stay in
+  // the address bar (a reload would replay them), and the PKCE material is spent.
+  history.replaceState(null, '', location.pathname);
+  storageRemove('session', PENDING_KEY);
+
+  if (error) {
+    const description = p.get('error_description');
+    throw new Error(`Authorization failed: ${error}${description ? ` — ${description}` : ''}`);
+  }
   if (!raw) throw new Error('No pending sign-in (start sign-in on this device first)');
-  const pending = JSON.parse(raw) as { state: string; codeVerifier: string; redirectUri: string };
+  let pending: { state: string; codeVerifier: string; redirectUri: string };
+  try {
+    pending = JSON.parse(raw);
+  } catch {
+    throw new Error('Sign-in state was unreadable. Start sign-in again.');
+  }
   if (pending.state !== state) throw new Error('State mismatch — aborting for safety');
 
   const endpoints = await discover();
@@ -136,9 +172,7 @@ export async function completeSignInFromCallback(): Promise<TokenSet> {
       code_verifier: pending.codeVerifier,
     }),
   );
-  sessionStorage.removeItem(PENDING_KEY);
-  localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
-  history.replaceState(null, '', location.pathname);
+  storageSet('session', TOKENS_KEY, JSON.stringify(tokens));
   return tokens;
 }
 
@@ -149,12 +183,12 @@ export async function refreshTokens(refreshToken: string): Promise<TokenSet> {
     new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: CLIENT_ID }),
   );
   if (!next.refreshToken) next.refreshToken = refreshToken;
-  localStorage.setItem(TOKENS_KEY, JSON.stringify(next));
+  storageSet('session', TOKENS_KEY, JSON.stringify(next));
   return next;
 }
 
 export function loadTokens(): TokenSet | null {
-  const raw = localStorage.getItem(TOKENS_KEY);
+  const raw = storageGet('session', TOKENS_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as TokenSet;
@@ -164,7 +198,9 @@ export function loadTokens(): TokenSet | null {
 }
 
 export function clearTokens(): void {
-  localStorage.removeItem(TOKENS_KEY);
+  storageRemove('session', TOKENS_KEY);
+  // Tokens used to live in localStorage; drop any left behind by an earlier version.
+  storageRemove('local', TOKENS_KEY);
 }
 
 export function signOut(tokens: TokenSet | null): void {

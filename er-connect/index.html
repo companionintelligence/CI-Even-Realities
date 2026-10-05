@@ -1,36 +1,107 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#041620" />
-    <meta name="description" content="Install CI Companion for Even Realities G2, sign in with Companion Intelligence, and connect your CI-Hub." />
+    <meta name="color-scheme" content="dark" />
+    <title>CI Companion for Even Realities G2 — Setup &amp; Connect</title>
+    <meta name="description" content="Set up and connect CI Companion for Even Realities G2: sign in with Companion Intelligence and connect your Companion Hub. Developer preview." />
     <link rel="canonical" href="https://er.ci.computer/" />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Companion Intelligence" />
-    <meta property="og:title" content="CI Companion — Setup &amp; Connect" />
-    <meta property="og:description" content="Install CI Companion for Even Realities G2, sign in with Companion Intelligence, and connect your CI-Hub." />
+    <meta property="og:title" content="CI Companion for Even Realities G2 — Setup &amp; Connect" />
+    <meta property="og:description" content="Set up and connect CI Companion for Even Realities G2: sign in with Companion Intelligence and connect your Companion Hub. Developer preview." />
     <meta property="og:url" content="https://er.ci.computer/" />
     <meta property="og:image" content="https://er.ci.computer/assets/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="CI Companion for Even Realities G2" />
+    <meta property="og:image:alt" content="CI Companion for Even Realities G2 — developer preview. Set up, sign in with Companion Intelligence, and connect your Companion Hub." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="CI Companion — Setup &amp; Connect" />
-    <meta name="twitter:description" content="Install CI Companion for Even Realities G2, sign in with Companion Intelligence, and connect your CI-Hub." />
+    <meta name="twitter:title" content="CI Companion for Even Realities G2 — Setup &amp; Connect" />
+    <meta name="twitter:description" content="Set up and connect CI Companion for Even Realities G2: sign in with Companion Intelligence and connect your Companion Hub. Developer preview." />
     <meta name="twitter:image" content="https://er.ci.computer/assets/og-image.png" />
+    <meta name="twitter:image:alt" content="CI Companion for Even Realities G2 — developer preview. Set up, sign in with Companion Intelligence, and connect your Companion Hub." />
     <script type="application/ld+json">
-      {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://ci.computer/#organization","name":"Companion Intelligence","url":"https://ci.computer"},{"@type":"SoftwareApplication","@id":"https://er.ci.computer/#app","name":"CI Companion","description":"Install CI Companion for Even Realities G2, sign in with Companion Intelligence, and connect your CI-Hub.","url":"https://er.ci.computer/","applicationCategory":"UtilitiesApplication","operatingSystem":"Even Realities G2","publisher":{"@id":"https://ci.computer/#organization"}}]}
+      {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://ci.computer/#organization","name":"Companion Intelligence","url":"https://ci.computer","logo":{"@type":"ImageObject","url":"https://er.ci.computer/assets/icon-512.png","width":512,"height":512},"sameAs":["https://www.linkedin.com/company/companionintelligence/","https://x.com/companionintel","https://youtube.com/@companionintelligence","https://www.instagram.com/companionintelligence/","https://www.facebook.com/companionintelligence","https://www.tiktok.com/@companionintelligence"]},{"@type":"WebPage","@id":"https://er.ci.computer/#webpage","url":"https://er.ci.computer/","name":"CI Companion for Even Realities G2 — Setup & Connect","description":"Set up and connect CI Companion for Even Realities G2: sign in with Companion Intelligence and connect your Companion Hub. Developer preview.","inLanguage":"en","publisher":{"@id":"https://ci.computer/#organization"}}]}
     </script>
-    <title>CI Companion — Setup &amp; Connect</title>
-    <link rel="icon" type="image/png" href="/assets/favicon-32.png" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      First-paint shell. The page has real content, and working links, before the
+      JavaScript loads and when it cannot (crawlers, blocked scripts, restrictive
+      webviews). React replaces everything inside #root on start.
+      src/App.tsx renders the same header, hero, callouts and footer; keep the
+      two in step. scripts/check-dist.mjs fails the build if the links or the
+      button classes diverge.
+    -->
+    <div id="root">
+      <div class="mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-12 pt-8">
+        <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground">Skip to main content</a>
+        <header class="mb-8 flex items-center justify-between gap-3">
+          <a href="https://ci.computer" title="Companion Intelligence" class="-m-1 flex items-center gap-2 p-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <img src="/assets/favicon.svg" width="28" height="28" alt="" class="inline-block align-middle" />
+            <span class="text-sm font-bold tracking-tight">CI Companion</span>
+            <span class="sr-only"> — Companion Intelligence home</span>
+          </a>
+          <nav aria-label="Page" class="flex items-center gap-1">
+            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs" href="https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities">Docs</a>
+          </nav>
+        </header>
+
+        <main id="main" tabindex="-1" class="flex flex-1 flex-col gap-5 focus:outline-none">
+          <div class="text-center">
+            <h1 class="text-2xl font-extrabold tracking-tight">
+              Talk to any AI through your <span class="text-primary">Even Realities G2</span>
+            </h1>
+            <p class="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+              Set up CI Companion, sign in, and connect a backend: three steps to your glasses talking
+              to an AI.
+            </p>
+            <div class="mx-auto mt-4 grid max-w-sm grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+              <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2" href="https://ci.computer/core">Buy Companion Core</a>
+              <a class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2" href="https://ci.computer/download">Download Companion</a>
+            </div>
+            <p class="mx-auto mt-2 max-w-sm text-xs text-muted-foreground">
+              Companion Core: a private, cloud-free AI lab. Companion Hub: turn any computer into a
+              home AI hub.
+            </p>
+          </div>
+
+          <h2 class="sr-only">Set up CI Companion</h2>
+          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div class="min-h-[22rem] p-4">
+              <noscript>
+                <p class="text-sm">
+                  The setup and sign-in steps need JavaScript. Without it, read the
+                  <a class="underline underline-offset-4" href="https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities">CI Companion docs</a>
+                  or visit <a class="underline underline-offset-4" href="https://ci.computer">Companion Intelligence</a>.
+                </p>
+              </noscript>
+            </div>
+          </div>
+        </main>
+
+        <footer class="mt-10 border-t border-border pt-3 text-xs text-muted-foreground">
+          <nav aria-label="Companion Intelligence" class="flex flex-wrap items-center justify-center">
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer">Companion Intelligence</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/core">Buy Companion Core</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/download">Download Companion</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities">Docs</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/support">Support</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/privacy-policy">Privacy</a>
+            <a class="inline-flex min-h-11 items-center px-2.5 underline-offset-4 hover:text-foreground hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="https://ci.computer/terms-of-service">Terms</a>
+          </nav>
+        </footer>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

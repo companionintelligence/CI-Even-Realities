@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read # npm ci pulls the private @companionintelligence/* packages
     defaults:
       run:
         working-directory: ci-glasses-app
@@ -75,3 +76,39 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  er-connect:
+    name: er-connect — Typecheck & Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: er-connect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: er-connect/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `npm run build` ends with scripts/check-dist.mjs: the ci.computer / BUY /
+      # DOWNLOAD / docs cross-links, SEO tags, JSON-LD, GA4 (once, only when the ID is
+      # valid), CSP and the bundle-size budget are all asserted against dist/.
+      - name: Build and check output
+        run: npm run build
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}

@@ -8,6 +8,23 @@
 
 @source '../node_modules/@companionintelligence/ui/dist/index.js';
 @source './';
+/* The static first-paint shell and the 404 page are plain HTML, outside src/. */
+@source '../index.html';
+@source '../404.html';
+
+/*
+ * Manrope, self-hosted (Latin subset, variable weight axis, ~24 KB). The tokens
+ * set --font-sans to "Manrope", so register the face under that name. No request
+ * to Google Fonts: nothing leaks the visitor's IP, the page renders offline or
+ * behind a blocked network, and the CSP needs no font exceptions.
+ */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2') format('woff2');
+}
 
 html {
   font-size: 17px;

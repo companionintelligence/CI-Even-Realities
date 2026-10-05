@@ -10,6 +10,12 @@ name: Deploy er-connect (Cloudflare Workers static assets)
 # that config file instead of CLI flags. er-connect is a real Vite + React
 # app now (@companionintelligence/ui), so it needs an install + build step
 # before wrangler can see anything in dist/.
+#
+# Needs two repo secrets, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (see
+# er-connect/README.md). The first step fails fast, with that message, when they
+# are missing. wrangler 4 is required: the assets-only wrangler.jsonc has no
+# `main`, which wrangler 3.x (what wrangler-action installs by default) rejects
+# with "Missing entry-point".
 on:
   workflow_dispatch:
 
@@ -28,6 +34,16 @@ jobs:
       run:
         working-directory: er-connect
     steps:
+      - name: Check Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error title=Cloudflare secrets missing::Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID under Settings > Secrets and variables > Actions (see er-connect/README.md, Deploy). Until then, redeploy locally: cd er-connect && npm run build && npx wrangler deploy"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -55,5 +71,25 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
           workingDirectory: er-connect
           command: deploy
+
+      # A green deploy is not proof the site changed (this one sat stale for a
+      # while). Fetch the live page and assert the cross-links are in it.
+      - name: Verify the live site
+        working-directory: .
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            html="$(curl -fsSL --max-time 20 https://er.ci.computer/ || true)"
+            if printf '%s' "$html" | grep -q 'href="https://ci.computer/core"' \
+              && printf '%s' "$html" | grep -q 'href="https://ci.computer/download"' \
+              && curl -fsS --max-time 20 -o /dev/null https://er.ci.computer/robots.txt; then
+              echo "Live site serves the new build."
+              exit 0
+            fi
+            echo "Attempt $attempt: live site does not show the new build yet; retrying in 10s"
+            sleep 10
+          done
+          echo "::error title=Live site is stale::https://er.ci.computer/ does not contain the Buy/Download links after deploy."
+          exit 1

@@ -9,7 +9,8 @@ A curated collection of links, community findings, and development tips for buil
 | Resource | URL |
 |---|---|
 | Even Realities website | <https://www.evenrealities.com/smart-glasses> |
-| Even Hub portal | <https://evenhub.evenrealities.com/> |
+| Even Hub (portal and docs) | <https://hub.evenrealities.com/> |
+| Even Hub developer console | <https://hub.evenrealities.com/hub> |
 | Even Hub support docs | <https://support.evenrealities.com/hc/en-us/articles/15016109505679-Even-Hub-Pilot-Program> |
 | Even Hub SDK (npm) | <https://www.npmjs.com/package/@evenrealities/even_hub_sdk> |
 | Even Hub CLI (npm) | <https://www.npmjs.com/package/@evenrealities/evenhub-cli> |
