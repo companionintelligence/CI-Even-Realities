@@ -194,3 +194,13 @@ the connection is actually verified end to end.
 - `src/hub/connect.ts` — CI-Hub host normalization and the `agent-hub` reachability probe, mirrors `ci-glasses-app/src/config/HubPresets.ts`.
 - `public/` — favicon, screenshots (copies of `ci-glasses-app/assets/screenshots/01-empty-quick-actions.png` and `03-settings.png` — refresh them whenever the app's look changes), and `_headers` — copied into `dist/` verbatim on build.
 - `wrangler.jsonc` — the Worker config: name (`ci-er-connect`), `dist/` as the assets directory, and the `er.ci.computer` custom-domain route.
+
+## Analytics (GA4)
+
+Google Analytics 4 is injected at build time by `vite.config.ts` when `GA_MEASUREMENT_ID` matches `/^G-[A-Z0-9]+$/`; otherwise nothing is emitted. The deploy workflow sources it from the repo variable of the same name:
+
+```bash
+gh variable set GA_MEASUREMENT_ID --body G-XXXX --repo companionintelligence/CI-Even-Realities
+```
+
+The ID is never committed. The init script is an external `ga-init.js` so the CSP in `public/_headers` needs no `unsafe-inline`. If Google's script is blocked or offline the page is unaffected.

@@ -41,8 +41,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # GA4 is injected at build time by er-connect/vite.config.ts, and only
+      # when the repo variable is a valid G-… ID (unset => nothing emitted).
+      #   gh variable set GA_MEASUREMENT_ID --body G-XXXX --repo companionintelligence/CI-Even-Realities
       - name: Build
         run: npm run build
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
 
       - name: Publish to Cloudflare
         uses: cloudflare/wrangler-action@v3
