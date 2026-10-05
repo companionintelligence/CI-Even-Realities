@@ -34,7 +34,10 @@ jobs:
       run:
         working-directory: er-connect
     steps:
+      # Runs before checkout, so er-connect/ does not exist yet: override the job's
+      # default working directory or bash cannot even start.
       - name: Check Cloudflare credentials
+        working-directory: .
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
