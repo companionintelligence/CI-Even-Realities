@@ -5,7 +5,8 @@
     "enabled": true
   },
   "assets": {
-    "directory": "dist"
+    "directory": "dist",
+    "not_found_handling": "404-page"
   },
   "routes": [
     { "pattern": "er.ci.computer", "custom_domain": true }
