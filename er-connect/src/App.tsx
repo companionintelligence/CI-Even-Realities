@@ -292,11 +292,10 @@ export function App() {
             </a>
           ))}
         </nav>
-        <p className="mt-2 text-center">
-          This page remembers your Companion Hub address in this browser and keeps your sign-in only
-          while this tab is open.
-          {__GA_ENABLED__ ? ' It uses Google Analytics to count visits; see Privacy.' : ''}
-        </p>
+        {/* The analytics disclosure stays, and shows only when the build has Google Analytics on. */}
+        {__GA_ENABLED__ ? (
+          <p className="mt-2 text-center">It uses Google Analytics to count visits; see Privacy.</p>
+        ) : null}
       </footer>
 
       {Help ? <Help open={helpOpen} onOpenChange={setHelpOpen} /> : null}
