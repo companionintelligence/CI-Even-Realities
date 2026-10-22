@@ -29,5 +29,5 @@ export const DOCS_INSTALL_URL = 'https://docs.ci.computer/docs/apps-available/fi
 export const DOCS_TROUBLESHOOTING_URL = 'https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities#troubleshooting';
 
 /** Visible labels. Kept identical across the CI first-party app sites. */
-export const BUY_LABEL = 'Buy Companion Core';
+export const BUY_LABEL = 'Shop Core Computers';
 export const DOWNLOAD_LABEL = 'Download Companion';

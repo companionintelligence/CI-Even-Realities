@@ -151,7 +151,7 @@ a.border-input:hover, button.border-input:hover { background-color: var(--site-w
 button.bg-secondary { background-color: transparent; border: 1px solid var(--site-ink); color: var(--site-ink); font-weight: 500; }
 button.bg-secondary:hover { background-color: var(--site-wash); }
 button.bg-primary:disabled { opacity: 0.6; }
-/* The one highlighted call to action on the page: Buy Companion Core in the hero. */
+/* The one highlighted call to action on the page: Shop Core Computers in the hero. */
 .ci-page > main a.bg-primary[href$="/core"] { background-color: var(--site-cta); color: #ffffff; font-weight: 600; }
 .ci-page > main a.bg-primary[href$="/core"]:hover { background-color: var(--site-cta-hover); color: #ffffff; }
 nav a.hover\:bg-accent, nav button.hover\:bg-accent { color: var(--site-muted); }
