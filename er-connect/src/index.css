@@ -26,10 +26,130 @@
   src: url('@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2') format('woff2');
 }
 
+/*
+ * Companion site system (October 2026): the rules ci.computer and docs.ci.computer follow. This page is
+ * dark only (the ThemeProvider defaults to dark and nothing toggles it). Each --site-* alias reads the
+ * canon token of the same role first (tokens 1.3.0, CI-Common PR #413) and falls back to the literal.
+ * The kit's components keep their class strings (scripts/check-dist.mjs compares them with the static
+ * shell), so their look is set here: radii and shadows through the Tailwind theme, colours through the
+ * tokens, and a few unlayered rules for the rest.
+ */
+@theme {
+  /* Controls 3px, cards 5px, images inside cards 3px. */
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 5px;
+  --radius-xl: 5px;
+  --radius-2xl: 5px;
+  /* No shadows. */
+  --shadow: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+}
+
+:root {
+  color-scheme: dark;
+  --radius: 5px;
+  --font-letter-spacing: 0;
+  --font-word-spacing: 0;
+
+  --site-ground: var(--background, #041620);
+  --site-panel: var(--card, #0c323c);
+  --site-ink: var(--foreground, #e8f2f4);
+  --site-muted: var(--muted-foreground, #a3babf);
+  --site-mark-deep: var(--mark-deep, #066c80);
+  --site-mark-mid: var(--mark-mid, #1fa89e);
+  --site-mark-light: var(--mark-light, #3ae7ba);
+  --site-button: var(--button-primary, var(--site-mark-deep));
+  --site-button-hover: var(--button-primary-hover, color-mix(in srgb, var(--site-mark-deep) 84%, #ffffff));
+  --site-cta: var(--cta, #069b5b);
+  --site-cta-hover: var(--cta-hover, #05824c);
+  --site-link: var(--link, var(--site-mark-light));
+  --site-link-hover: var(--link-hover, #ffffff);
+  --site-label-ink: var(--label-ink, var(--site-mark-light));
+  --site-hairline: var(--hairline, color-mix(in srgb, var(--site-ink) 14%, transparent));
+  --site-hairline-strong: color-mix(in srgb, var(--site-ink) 30%, transparent);
+  --site-wash: color-mix(in srgb, var(--site-ink) 5%, transparent);
+  --site-radius-control: var(--radius-control, 3px);
+  --site-radius-card: var(--radius-card, 5px);
+  --site-gutter: var(--grid-gutter, 24px);
+  --site-margin: calc((100vw - 11 * var(--site-gutter)) / 12 + var(--site-gutter));
+}
+.dark {
+  /* The kit reads these tokens: flat deep-ring primary, light-ring focus, hairline borders. */
+  --primary: var(--site-button);
+  --primary-foreground: #ffffff;
+  --ring: var(--site-link);
+  --border: var(--site-hairline);
+  --input: var(--site-hairline-strong);
+  --accent: var(--site-wash);
+  --warning: #ffffff;
+}
+@media (max-width: 900px) {
+  :root { --site-margin: 16px; }
+}
+
 html {
   font-size: 17px;
 }
 
 body {
   min-height: 100vh;
+  background: var(--site-ground);
+  color: var(--site-ink);
+  line-height: 1.6;
 }
+
+/* Page frame: the grid margins on the sides (content in columns 2 to 11, 16px gutter under 900px);
+   the setup column keeps a readable measure in the middle of it. */
+.ci-page {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  flex-direction: column;
+  padding: 24px var(--site-margin) 40px;
+}
+.ci-page > main { width: 100%; max-width: 40rem; margin-inline: auto; }
+.ci-page > header { margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--site-hairline); }
+.ci-logo { display: block; height: 44px; width: auto; }
+.ci-brand { display: inline-flex; align-items: center; line-height: 0; border-radius: var(--site-radius-control); }
+@media (max-width: 480px) { .ci-logo { height: 36px; } }
+
+/* Type: Manrope 500 titles, 19px ledes in muted ink, 17px body, tracked 13px labels in the ring colour. */
+h1 { font-size: clamp(2.25rem, 3.5vw + 0.6rem, 3.5294rem); font-weight: 500; line-height: 1.04; letter-spacing: -0.025em; }
+h2, h3 { font-weight: 500; letter-spacing: -0.02em; line-height: 1.12; }
+h3 { font-size: 1.1176rem; font-weight: 600; line-height: 1.3; letter-spacing: 0; }
+main > div > h1 + p { font-size: 1.1176rem; line-height: 1.5; }
+.text-primary { color: var(--site-label-ink); }
+label.text-xs, .uppercase { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.12em; color: var(--site-label-ink); }
+
+/* Links in the light ring, white on hover, 1px underline in the current colour. */
+a { text-decoration-thickness: 1px; }
+a.underline { color: var(--site-link); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+a.underline:hover { color: var(--site-link-hover); }
+
+/* Buttons: flat, Manrope 500. Primary is the deep ring (16 percent toward white on hover); outline is the page ink. */
+a.bg-primary, button.bg-primary { background-color: var(--site-button); color: #ffffff; font-weight: 500; }
+a.bg-primary:hover, button.bg-primary:hover { background-color: var(--site-button-hover); color: #ffffff; }
+a.border-input, button.border-input { border-color: var(--site-ink); background-color: transparent; color: var(--site-ink); }
+a.border-input:hover, button.border-input:hover { background-color: var(--site-wash); color: var(--site-ink); }
+button.bg-secondary { background-color: transparent; border: 1px solid var(--site-ink); color: var(--site-ink); font-weight: 500; }
+button.bg-secondary:hover { background-color: var(--site-wash); }
+button.bg-primary:disabled { opacity: 0.6; }
+/* The one highlighted call to action on the page: Buy Companion Core in the hero. */
+.ci-page > main a.bg-primary[href$="/core"] { background-color: var(--site-cta); color: #ffffff; font-weight: 600; }
+.ci-page > main a.bg-primary[href$="/core"]:hover { background-color: var(--site-cta-hover); color: #ffffff; }
+nav a.hover\:bg-accent, nav button.hover\:bg-accent { color: var(--site-muted); }
+nav a.hover\:bg-accent:hover, nav button.hover\:bg-accent:hover { color: var(--site-ink); background-color: transparent; }
+
+/* Cards and panels: 5px, hairline border, no shadow. */
+.rounded-lg.border, .rounded-lg.border-border { border: 1px solid var(--site-hairline); border-radius: var(--site-radius-card); background-color: var(--site-panel); }
+input { border-radius: var(--site-radius-control); }
+
+/* Footer: condensed 13px, hairline on top, muted links that go to the ink on hover. */
+footer { font-size: 0.8125rem; line-height: 1.4; border-top-color: var(--site-hairline); }
+footer a { min-height: 0 !important; padding-block: 4px; color: var(--site-muted); text-decoration: none; }
+footer a:hover { color: var(--site-ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }

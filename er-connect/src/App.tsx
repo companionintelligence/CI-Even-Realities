@@ -4,7 +4,6 @@ import {
   buttonVariants,
   Card,
   CardContent,
-  Logo,
   StatusPill,
   Input,
   Label,
@@ -86,21 +85,19 @@ export function App() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-12 pt-8">
+    <div className="ci-page">
       <a href="#main" className={SKIP_LINK}>
         Skip to main content
       </a>
       <header className="mb-8 flex items-center justify-between gap-3">
-        <a href={CI_SITE_URL} title="Companion Intelligence" className={`-m-1 flex items-center gap-2 p-1 ${FOCUS_RING}`}>
-          <Logo variant="mark" size={28} aria-hidden="true" />
-          <span className="text-sm font-bold tracking-tight">CI Companion</span>
-          <span className="sr-only"> — Companion Intelligence home</span>
+        <a href={CI_SITE_URL} title="Companion Intelligence" className={`ci-brand -m-1 p-1 ${FOCUS_RING}`}>
+          <img src="/assets/ci-logo-white-banner.svg" width={139} height={44} alt="Companion Intelligence" className="ci-logo" />
         </a>
         <nav aria-label="Page" className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={openHelp} onPointerEnter={preloadHelp} onFocus={preloadHelp}>
             Help
           </Button>
-          <a className={buttonVariants({ variant: 'ghost', size: 'sm' })} href={DOCS_URL}>
+          <a className={buttonVariants({ variant: 'default', size: 'sm' })} href={DOCS_URL}>
             Docs
           </a>
         </nav>

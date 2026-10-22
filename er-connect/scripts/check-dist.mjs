@@ -319,7 +319,7 @@ try {
   const expected = {
     'hero BUY (default)': buttonVariants({ variant: 'default' }),
     'hero DOWNLOAD (outline)': buttonVariants({ variant: 'outline' }),
-    'header Docs (ghost sm)': buttonVariants({ variant: 'ghost', size: 'sm' }),
+    'header Docs (default sm)': buttonVariants({ variant: 'default', size: 'sm' }),
   };
   for (const [label, classes] of Object.entries(expected)) {
     check(indexHtml.includes(`class="${classes}"`), `index.html static shell: ${label} classes drifted from the kit's buttonVariants`);
