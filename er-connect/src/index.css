@@ -112,7 +112,16 @@ body {
   flex-direction: column;
   padding: 24px var(--site-margin) 40px;
 }
-.ci-page > main { width: 100%; max-width: 40rem; margin-inline: auto; }
+/* Like the Mentra page: the content runs on the grid width, the hero is left-aligned with a tracked
+   title, a 19px lede and a row of buttons (the kit's centred, narrow hero classes are overridden here
+   so the static shell and the app keep the same markup). */
+.ci-page > main { width: 100%; max-width: none; margin-inline: 0; }
+.ci-page > main > div:first-child { max-width: 46rem; padding-block: 24px 8px; text-align: left; }
+.ci-page > main > div:first-child > p { margin-inline: 0; max-width: 42rem; }
+.ci-page > main > div:first-child > p:first-of-type { margin-top: 20px; color: var(--site-muted); }
+.ci-page > main > div:first-child > div { display: flex; flex-wrap: wrap; gap: 12px; margin-inline: 0; margin-top: 28px; max-width: none; }
+.ci-page > main > div:first-child > div > a { height: 44px; padding-inline: 20px; }
+.ci-page > main > div:first-child > div + p { margin-top: 16px; }
 .ci-page > header { margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--site-hairline); }
 .ci-logo { display: block; height: 44px; width: auto; }
 .ci-brand { display: inline-flex; align-items: center; line-height: 0; border-radius: var(--site-radius-control); }
