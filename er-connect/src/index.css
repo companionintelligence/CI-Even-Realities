@@ -117,7 +117,10 @@ body {
    so the static shell and the app keep the same markup). */
 .ci-page > main { width: 100%; max-width: none; margin-inline: 0; }
 .ci-page > main > div:first-child { max-width: 46rem; padding-block: 24px 8px; text-align: left; }
-.ci-page > main > div:first-child > p { margin-inline: 0; max-width: 42rem; }
+.ci-page > main > div:first-child > p { margin-inline: 0; max-width: 36rem; text-wrap: pretty; }
+/* Wrap the headline in balanced lines and keep the highlighted product name in one piece. */
+.ci-page > main > div:first-child > h1 { text-wrap: balance; max-width: 22ch; }
+.ci-page > main > div:first-child > h1 > span { display: inline-block; }
 .ci-page > main > div:first-child > p:first-of-type { margin-top: 20px; color: var(--site-muted); }
 .ci-page > main > div:first-child > div { display: flex; flex-wrap: wrap; gap: 12px; margin-inline: 0; margin-top: 28px; max-width: none; }
 .ci-page > main > div:first-child > div > a { height: 44px; padding-inline: 20px; }
