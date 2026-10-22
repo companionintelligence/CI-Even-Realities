@@ -15,7 +15,7 @@ uses, instead of a hand-approximated copy.
   and the Discord instead of a store link. Put the real listing link here
   (and bring back a QR code) only once a listing exists.
 - **Cross-links** — the logo and footer go to <https://ci.computer>; the hero and
-  Connect step carry **Buy Companion Core** (<https://ci.computer/core>) and
+  Connect step carry **Shop Core Computers** (<https://ci.computer/core>) and
   **Download Companion** (<https://ci.computer/download>); **Docs** links to the
   matching docs page. Every URL lives in `src/links.ts`.
 - **Sign in** — real Authorization Code + PKCE flow against CI-Portal
