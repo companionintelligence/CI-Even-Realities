@@ -332,3 +332,17 @@ ci-even-realities/
 | Awesome Even Realities G1 | <https://github.com/galfaroth/awesome-even-realities-g1> |
 | Setup & Connect page | [`er-connect/`](er-connect/) — deploys to `er.ci.computer` |
 | CI pipeline reference | [`docs/ci-pipeline.md`](docs/ci-pipeline.md) — what each workflow does + `gh` commands |
+
+<!-- companion-hub-readme-deep-review -->
+
+## Display and backend boundaries
+
+| Surface | Where it runs |
+|---|---|
+| Chat and settings | Web application and simulator/dev workflow |
+| HUD overlays | Native runtime only, as called out in the feature section |
+| Voice pipeline | Uses the selected compatible AI backend |
+| Even Hub upload | Production build/upload path |
+
+The simulator is useful for UI iteration, but it does not validate native HUD overlays or actual glasses behavior. Validate those through the native runtime and device-specific workflow documented below. Keep backend credentials in local configuration.
+
