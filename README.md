@@ -1,6 +1,9 @@
-# Companion Intelligence - Even Realities G2
+<h1 align="center">Companion Intelligence - Even Realities G2</h1>
 
-> **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
+<p align="center"><strong>Pluggable local-agent platform for Even Realities G2 smart glasses</strong></p>
+
+<p align="center"><a href="https://er.ci.computer">Website</a> · <a href="#quick-start">Get started</a></p>
+
 
 For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect app](https://er.ci.computer) ([source](er-connect/)) walks through setting up CI Companion, signing in with Companion Intelligence, and connecting a Companion Hub in three steps (developer preview: the app is not in the Even Hub store yet).
 
