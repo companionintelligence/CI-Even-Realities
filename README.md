@@ -1,6 +1,17 @@
-# Companion Intelligence - Even Realities G2
+<h1 align="center">Companion Intelligence - Even Realities G2</h1>
 
-> **Pluggable local-agent platform for Even Realities G2 smart glasses** — a Vite + TypeScript Even Hub app paired with a local **agent-hub** that exposes one OpenAI-compatible wire in front of Hermes (Ollama), OpenClaw, Claude Code, and Codex.
+<p align="center"><strong>Pluggable local-agent platform for Even Realities G2 smart glasses</strong></p>
+
+[![release](https://img.shields.io/badge/release-not%20published-757575?style=flat-square)](https://github.com/companionintelligence/CI-Even-Realities/releases)
+[![platform](https://img.shields.io/badge/platform-Even%20Realities%20glasses%20%C2%B7%20iOS%2FAndroid%20host-0a6358?style=flat-square)](https://github.com/companionintelligence/CI-Even-Realities)
+[![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0-0a6358?style=flat-square)](LICENSE.md)
+[![Discord](https://img.shields.io/badge/chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yQp9hwpzAa)
+
+<p align="center"><a href="https://er.ci.computer">Website</a> · <a href="#quick-start">Get started</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a> · <a href="docs/architecture.md">Documentation</a></p>
+
+<p align="center">
+  <a href="https://er.ci.computer"><img src="https://img.shields.io/badge/Open%20setup%20preview-Open%20setup%20preview-0a6358?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Open setup preview" height="30"></a>
+</p>
 
 For the full plan and design see [`planning.md`](planning.md) and [`architecture.md`](architecture.md). **New here?** The interactive [Setup & Connect app](https://er.ci.computer) ([source](er-connect/)) walks through setting up CI Companion, signing in with Companion Intelligence, and connecting a Companion Hub in three steps (developer preview: the app is not in the Even Hub store yet).
 
@@ -11,6 +22,15 @@ For the full plan and design see [`planning.md`](planning.md) and [`architecture
 ---
 
 ## Interface
+
+<table>
+  <tr>
+    <td valign="top"><img src="ci-glasses-app/assets/screenshots/02-hud-ready.png" alt="Even Realities HUD ready state" width="420"><p align="center">Even Realities HUD ready state</p></td>
+    <td valign="top"><img src="ci-glasses-app/assets/screenshots/03-settings.png" alt="Even Realities settings" width="420"><p align="center">Even Realities settings</p></td>
+    <td valign="top"><img src="ci-glasses-app/assets/screenshots/06-chat-with-response.png" alt="Chat response displayed in the glasses app" width="420"><p align="center">Chat response displayed in the glasses app</p></td>
+  </tr>
+</table>
+
 
 The CI Companion phone WebView — the control surface paired with the G2 glasses. Voice-first: tap the mic or long-press the G2 touchbar, and answers stream onto the glasses HUD (mirrored in the **Glasses display** preview).
 
@@ -57,6 +77,14 @@ In a plain headless browser the bridge never resolves, so both deep-links fall t
 
 ## What this is
 
+| Feature | What it provides |
+|---|---|
+| **Glasses UI** | Render chat and HUD surfaces inside Even Hub's mobile WebView. |
+| **Device bridge** | Use Even Hub's JavaScript bridge for display, microphone and BLE audio. |
+| **Streaming backends** | Select compatible OpenAI-style chat or Responses APIs. |
+| **Voice loop** | Stream response text/audio back through the native runtime. |
+
+
 `ci-even-realities` is an [Even Hub](https://hub.evenrealities.com/) app for the **Even Realities G2** smart glasses, plus a sibling `agent-hub/` Node service that brokers local agents.
 
 ```mermaid
@@ -90,6 +118,20 @@ The glasses app stays a thin OpenAI SSE client. All agent-specific glue lives in
 The app runs as a standard web page inside the **Even Hub** iOS/Android app, or in any modern browser (simulator / dev mode).
 
 ---
+
+
+## How it fits together
+
+Even Hub hosts the web UI in a mobile WebView and exposes a JavaScript bridge to the glasses; the selected chat backend streams text or audio back through the same bridge.
+
+```mermaid
+flowchart LR
+  App[CI glasses web app] --> WebView[Even Hub WebView]
+  WebView <--> Bridge[Even JavaScript bridge]
+  Bridge <--> Glasses[Display, mic and BLE audio]
+  App --> Backend[OpenAI-style backend]
+  Backend --> App
+```
 
 ## Architecture overview
 
@@ -329,3 +371,17 @@ ci-even-realities/
 | Awesome Even Realities G1 | <https://github.com/galfaroth/awesome-even-realities-g1> |
 | Setup & Connect page | [`er-connect/`](er-connect/) — deploys to `er.ci.computer` |
 | CI pipeline reference | [`docs/ci-pipeline.md`](docs/ci-pipeline.md) — what each workflow does + `gh` commands |
+
+<!-- companion-hub-readme-deep-review -->
+
+## Display and backend boundaries
+
+| Surface | Where it runs |
+|---|---|
+| Chat and settings | Web application and simulator/dev workflow |
+| HUD overlays | Native runtime only, as called out in the feature section |
+| Voice pipeline | Uses the selected compatible AI backend |
+| Even Hub upload | Production build/upload path |
+
+The simulator is useful for UI iteration, but it does not validate native HUD overlays or actual glasses behavior. Validate those through the native runtime and device-specific workflow documented below. Keep backend credentials in local configuration.
+
