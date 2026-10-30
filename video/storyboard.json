@@ -1,0 +1,109 @@
+{
+  "$schema": "https://raw.githubusercontent.com/companionintelligence/CI-Common/main/packages/video-kit/schema/storyboard.schema.json",
+  "app": {
+    "id": "ci-even-realities",
+    "name": "CI Companion for Even Realities G2",
+    "repo": "companionintelligence/CI-Even-Realities",
+    "website": "ci.computer"
+  },
+  "meta": {
+    "fps": 30,
+    "transitionSeconds": 0.5,
+    "pacing": "fit",
+    "label": "Phone app captures. No glasses footage.",
+    "posterFirst": true,
+    "subtitles": "sidecar"
+  },
+  "chapters": {
+    "glasses": "On the glasses",
+    "yours": "Yours to point"
+  },
+  "scenes": [
+    {
+      "id": "open",
+      "kind": "intro",
+      "seconds": 5,
+      "minSeconds": 5,
+      "title": "CI Companion for G2 glasses",
+      "caption": "Talk to the AI you run, from your glasses.",
+      "narration": "A voice front end for Even Realities G2 glasses, pointed at the AI you run.",
+      "mark": "./assets/app-icon.png"
+    },
+    {
+      "id": "ask",
+      "kind": "feature",
+      "seconds": 5,
+      "minSeconds": 5,
+      "title": "Long-press the touchbar. Ask.",
+      "caption": "The answer streams onto the display.",
+      "narration": "Long-press the G2 touchbar to ask. The answer streams onto the glasses display.",
+      "chapter": "glasses"
+    },
+    {
+      "id": "phone",
+      "kind": "feature",
+      "seconds": 7,
+      "minSeconds": 7,
+      "caption": "The phone shows the exchange and a glasses display preview.",
+      "narration": "On the phone you see the exchange. The answer mirrors into a preview of the glasses display.",
+      "items": [
+        {
+          "image": "./assets/plates/phone-chat-response.png",
+          "alt": "Chat tab after an answer, mirrored in the Glasses display preview."
+        }
+      ],
+      "columns": 1,
+      "chapter": "glasses"
+    },
+    {
+      "id": "backends",
+      "kind": "feature",
+      "seconds": 8,
+      "minSeconds": 8,
+      "title": "Your backend, your account.",
+      "caption": "Sign in, or bring your own endpoint. Prompts go only where you point them.",
+      "narration": "Sign in with your Companion Intelligence account, or bring your own endpoint. Your prompts go only to the backend you configure.",
+      "chapter": "yours",
+      "items": [
+        {
+          "label": "Sign in",
+          "value": "Companion Intelligence account"
+        },
+        {
+          "label": "Quick connect",
+          "value": "Ollama, Hermes, OpenClaw"
+        },
+        {
+          "label": "Bring your own",
+          "value": "Any OpenAI-compatible URL"
+        },
+        {
+          "label": "Telemetry",
+          "value": "None"
+        }
+      ],
+      "reveal": "paced"
+    },
+    {
+      "id": "approve",
+      "kind": "feature",
+      "seconds": 5,
+      "minSeconds": 5,
+      "title": "Agents can ask permission first.",
+      "caption": "Double-tap approves. A single tap denies.",
+      "narration": "Coding agents can ask before they act. A double-tap approves, and a single tap denies.",
+      "chapter": "yours"
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "seconds": 6,
+      "minSeconds": 6,
+      "caption": "er.ci.computer",
+      "cta": "Ask from your glasses",
+      "tagline": "UnCloud your life.",
+      "url": "er.ci.computer",
+      "narration": "Ask from your glasses with CI Companion. Visit e r dot ci dot computer. UnCloud your life."
+    }
+  ]
+}
