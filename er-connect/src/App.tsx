@@ -136,6 +136,27 @@ export function App() {
           </p>
         </div>
 
+        <section className="mt-2" aria-labelledby="steps-title">
+          <h2 id="steps-title" className="text-base font-bold">
+            Set up in three steps
+          </h2>
+          <ol className="mt-3 flex list-decimal flex-col gap-3 pl-5 text-sm">
+            <li>
+              <strong className="font-semibold">Install.</strong> CI Companion for Even Realities G2 is a developer preview with no public download or store listing yet. If Companion Intelligence has given you access, follow the{' '}
+              <a className={TEXT_LINK} href={DOCS_INSTALL_URL}>
+                install steps in the docs
+              </a>
+              .
+            </li>
+            <li>
+              <strong className="font-semibold">Connect.</strong> Sign in with Companion Intelligence, then enter the address of your Companion Hub.
+            </li>
+            <li>
+              <strong className="font-semibold">Talk.</strong> Long-press the G2 touchbar, or tap the mic in the app, to ask a question. The answer streams onto the HUD as it arrives.
+            </li>
+          </ol>
+        </section>
+
         <h2 className="sr-only">Set up CI Companion</h2>
         <Card>
           <CardContent className="p-4">
