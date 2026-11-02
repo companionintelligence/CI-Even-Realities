@@ -1,0 +1,22 @@
+# CI Companion for Even Realities G2
+
+> CI Companion for Even Realities G2 is a developer preview. It lets Even Realities G2 glasses talk to an AI through a Companion Hub that you run. The glasses app has no public download or store listing yet.
+
+The setup page at https://er.ci.computer/ has three steps. Install: the app has no public download, so this step applies only with access, and the install steps are in the docs. Connect: sign in with Companion Intelligence, then enter the address of your Companion Hub. Talk: long-press the G2 touchbar to ask a question, and the answer streams onto the HUD as it arrives.
+
+Companion Core: a private, cloud-free AI lab. Companion Hub: turn any computer into a home AI hub. Companion Intelligence is the platform these products belong to (https://ci.computer/).
+
+Google Analytics is added to a build only when it is given a measurement ID, and the footer says so when it is on. The page does not load Google Fonts.
+
+## Pages
+
+- [Setup and connect](https://er.ci.computer/): the three setup steps, sign-in and the Companion Hub address
+- [Setup docs](https://docs.ci.computer/docs/apps-available/first-party-apps/even-realities): install steps, troubleshooting and how sign-in works
+
+## Optional
+
+- [Companion Hub download](https://ci.computer/download): the Companion Hub app
+- [Companion Intelligence](https://ci.computer/): the platform these products belong to
+- [Support](https://ci.computer/support): how to get help
+
+Support: https://ci.computer/support
